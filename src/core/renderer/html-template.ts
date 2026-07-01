@@ -212,7 +212,7 @@ function buildRevealConfig(cfg: RevealSettings | Partial<RevealSettings>, editor
   const config = {
     width:          slideW,
     height:         slideH,
-    margin:         0.04,
+    margin:         0,
     minScale:       0.1,
     maxScale:       2.0,
     center:         false,

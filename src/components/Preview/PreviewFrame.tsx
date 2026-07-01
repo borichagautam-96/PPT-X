@@ -130,9 +130,9 @@ export default function PreviewFrame() {
       </div>
 
       {/* Iframe Canvas */}
-      <div 
-        className="flex-1 overflow-hidden flex items-center justify-center bg-surface-900 p-12 relative"
-        style={{ 
+      <div
+        className="flex-1 overflow-hidden flex items-center justify-center bg-surface-900 p-3 relative"
+        style={{
           backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px)',
           backgroundSize: '24px 24px'
         }}
@@ -141,7 +141,7 @@ export default function PreviewFrame() {
           className="relative shadow-2xl rounded-sm overflow-hidden border border-white/5 transition-all duration-300 ease-out"
           style={
             scale === 'fit'
-              ? { width: '100%', maxWidth: '1280px', aspectRatio: '16/9' }
+              ? { width: '100%', aspectRatio: '16/9' }
               : scale === '100%'
               ? { width: '1280px', height: '720px' }
               : { width: '960px', height: '540px' }
