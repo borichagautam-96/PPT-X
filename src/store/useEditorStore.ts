@@ -11,6 +11,7 @@ import type {
   Element as PresentationElement,
   Asset,
   Theme,
+  FooterConfig,
 } from '@/core/schema';
 import { SHOWCASE_PRESENTATION } from '../data/showcase.ts';
 import type { GitLabConfig } from '../services/gitlab.ts';
@@ -62,6 +63,8 @@ interface EditorState {
   selectedElementIndices: number[];
   /** Ephemeral, non-persisted: live delta (% of canvas) while dragging a multi-selected group. Null when not dragging. */
   groupDragDelta: { dx: number; dy: number } | null;
+  /** Ephemeral, non-persisted: each group member's measured (% of canvas) rect at group-drag start, keyed by element index. */
+  groupDragStartRects: Record<number, { x: number; y: number; w: number; h: number }> | null;
   isDirty: boolean;
   isPresentationMode: boolean;
   isEditMode: boolean;
@@ -87,16 +90,27 @@ interface EditorActions {
   setSelectedElements: (indices: number[]) => void;
   /** Delete every currently multi-selected element on a slide in one undoable step. */
   deleteSelectedElements: (slideIndex: number) => void;
-  /** Shift every absolute-positioned element among `indices` by (dxPct, dyPct) in one undoable step. */
-  moveElementsBy: (slideIndex: number, indices: number[], dxPct: number, dyPct: number) => void;
+  /**
+   * Commit a group drag: sets each patched element to absolute mode at the given
+   * (x, y, width, height) in % of canvas — converting flow-mode members too. One undoable step.
+   */
+  applyGroupDrag: (slideIndex: number, patches: { index: number; x: number; y: number; width: number; height: number }[]) => void;
   /** Set/clear the live group-drag preview delta (not undoable, not persisted). */
   setGroupDragDelta: (delta: { dx: number; dy: number } | null) => void;
+  /** Set/clear each group member's measured start rect for the current group drag (not undoable, not persisted). */
+  setGroupDragStart: (rects: Record<number, { x: number; y: number; w: number; h: number }> | null) => void;
   enterEditMode: () => void;
   exitEditMode:  () => void;
 
   updateSlideTitle: (slideIndex: number, title: string) => void;
+  /** Manual position override (% of slide) for the cover/section title heading; undefined resets to the default flex-centered layout position. */
+  updateSlideTitlePosition: (slideIndex: number, position: { x: number; y: number; width?: number; height?: number } | undefined) => void;
   updateSlideNotes: (slideIndex: number, notes: string) => void;
   updateSlideLayout: (slideIndex: number, layout: SlideLayout) => void;
+  /** Set/clear the uniform shrink factor used to fit overflowing content within the slide bounds. */
+  updateSlideContentScale: (slideIndex: number, scale: number | undefined) => void;
+  /** Move every element from `splitElementIndex` onward into a new slide immediately after this one. */
+  splitSlideAt: (slideIndex: number, splitElementIndex: number) => void;
 
   updateElement: (slideIndex: number, elementIndex: number, patch: Partial<PresentationElement>) => void;
   deleteElement: (slideIndex: number, elementIndex: number) => void;
@@ -110,6 +124,8 @@ interface EditorActions {
   updateSlideBackground: (slideIndex: number, background: SlideBackground) => void;
   updateSlideTransition: (slideIndex: number, transition: SlideTransitionOverride | undefined) => void;
   applyTheme: (theme: Theme) => void;
+  /** Replace the presentation's branding footer config (undefined fields fall back to built-in defaults). */
+  updateFooterConfig: (footer: FooterConfig) => void;
   enterPresentationMode: () => void;
   exitPresentationMode: () => void;
   markSaved: () => void;
@@ -141,6 +157,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       selectedElementIndex: null,
       selectedElementIndices: [],
       groupDragDelta: null,
+      groupDragStartRects: null,
       isDirty: false,
       userTemplates: [],
       isPresentationMode: false,
@@ -333,6 +350,8 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 
       setGroupDragDelta: (delta) => set({ groupDragDelta: delta }),
 
+      setGroupDragStart: (rects) => set({ groupDragStartRects: rects }),
+
       // ── Slide mutations ────────────────────────────────────────────────
 
       updateSlideTitle: (slideIndex, title) => {
@@ -344,6 +363,19 @@ export const useEditorStore = create<EditorState & EditorActions>()(
             meta: { ...state.presentation.meta, updatedAt: new Date().toISOString() },
             slides: state.presentation.slides.map((s, i) =>
               i === slideIndex ? { ...s, title } : s,
+            ),
+          },
+        }));
+      },
+
+      updateSlideTitlePosition: (slideIndex, position) => {
+        get()._pushHistory();
+        set((state) => ({
+          isDirty: true,
+          presentation: {
+            ...state.presentation,
+            slides: state.presentation.slides.map((s, i) =>
+              i === slideIndex ? { ...s, titlePosition: position } : s,
             ),
           },
         }));
@@ -442,9 +474,9 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         }));
       },
 
-      moveElementsBy: (slideIndex, indices, dxPct, dyPct) => {
-        if (indices.length === 0) return;
-        const targets = new Set(indices);
+      applyGroupDrag: (slideIndex, patches) => {
+        if (patches.length === 0) return;
+        const patchMap = new Map(patches.map((p) => [p.index, p]));
         get()._pushHistory();
         set((state) => ({
           isDirty: true,
@@ -455,15 +487,17 @@ export const useEditorStore = create<EditorState & EditorActions>()(
               return {
                 ...s,
                 elements: s.elements.map((el, ei) => {
-                  if (!targets.has(ei) || el.position.mode !== 'absolute') return el;
-                  const w = el.position.width ?? 0;
-                  const h = el.position.height ?? 0;
+                  const p = patchMap.get(ei);
+                  if (!p) return el;
                   return {
                     ...el,
                     position: {
                       ...el.position,
-                      x: Math.max(0, Math.min(100 - w, (el.position.x ?? 0) + dxPct)),
-                      y: Math.max(0, Math.min(100 - h, (el.position.y ?? 0) + dyPct)),
+                      mode: 'absolute',
+                      x: Math.max(0, Math.min(100 - p.width, p.x)),
+                      y: Math.max(0, Math.min(100 - p.height, p.y)),
+                      width: p.width,
+                      height: p.height,
                     },
                   } as PresentationElement;
                 }),
@@ -577,6 +611,56 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         });
       },
 
+      updateSlideContentScale: (slideIndex, scale) => {
+        get()._pushHistory();
+        set((state) => ({
+          isDirty: true,
+          presentation: {
+            ...state.presentation,
+            slides: state.presentation.slides.map((s, i) =>
+              i === slideIndex ? { ...s, contentScale: scale } : s,
+            ),
+          },
+        }));
+      },
+
+      splitSlideAt: (slideIndex, splitElementIndex) => {
+        get()._pushHistory();
+        set((state) => {
+          const source = state.presentation.slides[slideIndex];
+          if (!source || splitElementIndex <= 0 || splitElementIndex >= source.elements.length) return {};
+
+          const keepEls = source.elements.slice(0, splitElementIndex);
+          const moveEls = source.elements.slice(splitElementIndex).map((el) => ({ ...el, id: crypto.randomUUID() }));
+
+          const updatedOriginal: Slide = { ...source, elements: keepEls, contentScale: undefined };
+          const newSlide: Slide = {
+            ...source,
+            id: crypto.randomUUID(),
+            title: source.title ? `${source.title} (cont.)` : source.title,
+            notes: undefined,
+            titlePosition: undefined,
+            contentScale: undefined,
+            elements: moveEls,
+          };
+
+          const slides = [
+            ...state.presentation.slides.slice(0, slideIndex),
+            updatedOriginal,
+            newSlide,
+            ...state.presentation.slides.slice(slideIndex + 1),
+          ].map((s, i) => ({ ...s, order: i }));
+
+          return {
+            isDirty: true,
+            selectedSlideIndex: slideIndex + 1,
+            selectedElementIndex: null,
+            selectedElementIndices: [],
+            presentation: { ...state.presentation, slides },
+          };
+        });
+      },
+
       updateSlideBackground: (slideIndex, background) => {
         get()._pushHistory();
         set((state) => ({
@@ -621,6 +705,14 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         set((state) => ({
           isDirty: true,
           presentation: { ...state.presentation, theme },
+        }));
+      },
+
+      updateFooterConfig: (footer) => {
+        get()._pushHistory();
+        set((state) => ({
+          isDirty: true,
+          presentation: { ...state.presentation, footer },
         }));
       },
 

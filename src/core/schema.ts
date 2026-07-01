@@ -38,6 +38,23 @@ export interface Presentation {
    * Runtime state is a separate mutable copy; this stores types and defaults only.
    */
   variables: VariableStore;
+  /**
+   * Branding footer shown on every slide (Edit canvas, Preview/HTML export, PPTX export).
+   * Undefined fields fall back to the built-in L&T defaults for backward compatibility
+   * with decks created before this was configurable.
+   */
+  footer?: FooterConfig;
+}
+
+export interface FooterConfig {
+  /** Left-aligned gray-bar text, e.g. "<Deliverable_No_RevNo> | All rights reserved with ..." */
+  deliverableText?: string;
+  /** Blue-bar left text, e.g. "Aerospace | Electronics | Land & Marine – Platforms & Systems" */
+  orgLine?: string;
+  /** Blue-bar center text, e.g. "© Larsen & Toubro Limited: Restricted" */
+  copyrightText?: string;
+  /** Blue-bar right logo image URL/path */
+  logoUrl?: string;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -156,6 +173,17 @@ export interface Slide {
   order: number;
   /** Used as heading in TOC and accessibility */
   title?: string;
+  /**
+   * Manual override position (% of slide) for the big title heading that
+   * `cover`/`section` layouts synthesize from `title`. Undefined = default
+   * layout-driven position (flex-centered per theme CSS).
+   */
+  titlePosition?: { x: number; y: number; width?: number; height?: number };
+  /**
+   * Uniform shrink factor (0 < scale <= 1) applied to the slide's flow content
+   * to fit overflowing text/media within the slide bounds. Undefined/1 = no shrink.
+   */
+  contentScale?: number;
   /** Speaker notes — plain text or Markdown */
   notes?: string;
 

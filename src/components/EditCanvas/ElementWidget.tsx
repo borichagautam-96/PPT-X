@@ -45,9 +45,11 @@ function applyResizeDelta(
 }
 
 export default function ElementWidget({ element, elementIndex, slideIndex, canvasRef, scale, isSelected, theme, assets, selectedIndices }: Props) {
-  const { selectElement, updateElement, moveElementsBy } = useEditorStore();
+  const { selectElement, updateElement, applyGroupDrag } = useEditorStore();
   const groupDragDelta = useEditorStore((s) => s.groupDragDelta);
   const setGroupDragDelta = useEditorStore((s) => s.setGroupDragDelta);
+  const groupDragStartRects = useEditorStore((s) => s.groupDragStartRects);
+  const setGroupDragStart = useEditorStore((s) => s.setGroupDragStart);
   const widgetRef = useRef<HTMLDivElement>(null);
   const [hover, setHover]         = useState(false);
   const [editing, setEditing]     = useState(false);
@@ -56,12 +58,15 @@ export default function ElementWidget({ element, elementIndex, slideIndex, canva
 
   const isAbs = element.position.mode === 'absolute';
   const isGroupMember = !!selectedIndices && selectedIndices.length > 1 && selectedIndices.includes(elementIndex);
+  const groupStartRect = groupDragStartRects?.[elementIndex];
   const displayPos = livePos
-    ?? (isGroupMember && groupDragDelta && isAbs
+    ?? (isGroupMember && groupDragDelta && groupStartRect
       ? {
-          ...element.position,
-          x: (element.position.x ?? 0) + groupDragDelta.dx,
-          y: (element.position.y ?? 0) + groupDragDelta.dy,
+          mode: 'absolute' as const,
+          x: groupStartRect.x + groupDragDelta.dx,
+          y: groupStartRect.y + groupDragDelta.dy,
+          width: groupStartRect.w,
+          height: groupStartRect.h,
         }
       : (isAbs ? element.position : null));
 
@@ -84,11 +89,31 @@ export default function ElementWidget({ element, elementIndex, slideIndex, canva
     };
   }
 
-  // ── group drag (multiple selected elements moved together) ────
+  // ── group drag (multiple selected elements — flow or absolute — moved together) ──
   function onGroupDragStart(e: React.MouseEvent) {
     e.stopPropagation();
     e.preventDefault();
     const indices = selectedIndices ?? [];
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const cr = cv.getBoundingClientRect();
+    const MAX_W = 50, MAX_H = 50; // cap oversized flow-derived rects, same as single-element drag
+
+    const rects: Record<number, { x: number; y: number; w: number; h: number }> = {};
+    indices.forEach((idx) => {
+      const node = cv.querySelector(`[data-el-idx="${idx}"]`) as HTMLElement | null;
+      if (!node) return;
+      const er = node.getBoundingClientRect();
+      const raw = {
+        x: (er.left - cr.left) / scale / CANVAS_W * 100,
+        y: (er.top  - cr.top)  / scale / CANVAS_H * 100,
+        w: er.width  / scale / CANVAS_W * 100,
+        h: er.height / scale / CANVAS_H * 100,
+      };
+      rects[idx] = { x: raw.x, y: raw.y, w: Math.min(raw.w, MAX_W), h: Math.min(raw.h, MAX_H) };
+    });
+    setGroupDragStart(rects);
+
     const startMouse = { x: e.clientX, y: e.clientY };
 
     const onMove = (me: MouseEvent) => {
@@ -98,8 +123,16 @@ export default function ElementWidget({ element, elementIndex, slideIndex, canva
     const onUp = (me: MouseEvent) => {
       const { dx, dy } = toCanvasPct(me.clientX - startMouse.x, me.clientY - startMouse.y);
       setGroupDragDelta(null);
+      setGroupDragStart(null);
       if (Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3) {
-        moveElementsBy(slideIndex, indices, dx, dy);
+        const patches = Object.entries(rects).map(([idxStr, r]) => ({
+          index: Number(idxStr),
+          x: Math.max(0, Math.min(100 - r.w, r.x + dx)),
+          y: Math.max(0, Math.min(100 - r.h, r.y + dy)),
+          width: r.w,
+          height: r.h,
+        }));
+        applyGroupDrag(slideIndex, patches);
       }
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
@@ -115,7 +148,7 @@ export default function ElementWidget({ element, elementIndex, slideIndex, canva
     // the onClick handler below) — stop the mousedown here so it doesn't start
     // a drag or bubble up to the canvas and start a marquee selection instead.
     if (e.shiftKey || e.ctrlKey || e.metaKey) { e.stopPropagation(); return; }
-    if (isGroupMember && isAbs) { onGroupDragStart(e); return; }
+    if (isGroupMember) { onGroupDragStart(e); return; }
     e.stopPropagation();
     e.preventDefault();
 
@@ -264,6 +297,7 @@ export default function ElementWidget({ element, elementIndex, slideIndex, canva
     <>
     <div
       ref={widgetRef}
+      data-el-idx={elementIndex}
       style={{
         ...containerStyle,
         outline,

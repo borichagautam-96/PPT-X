@@ -11,11 +11,26 @@ import type { Slide, Theme, Element as PresentationElement } from '@/core/schema
  * coverLayout()/sectionLayout() in core/renderer/layout-templates.ts.
  * Without this, those titles are invisible in the editor even though they
  * render in Preview/export. This mirrors that behavior so Edit and Preview
- * show the same content (exact cover/section flex-centering is not
- * replicated here — only the heading itself).
+ * show the same content, and additionally supports click-to-select and
+ * drag-to-reposition (persisted as `slide.titlePosition`, applied by the
+ * renderer as an absolute-position override on the same heading).
  */
-function SlideTitleBlock({ slide, theme, onCommit }: { slide: Slide; theme: Theme; onCommit: (v: string) => void }) {
+function SlideTitleBlock({
+  slide, theme, selected, onSelect,
+  canvasRef, scale,
+  onCommitText, onCommitPosition,
+}: {
+  slide: Slide;
+  theme: Theme;
+  selected: boolean;
+  onSelect: () => void;
+  canvasRef: React.RefObject<HTMLDivElement>;
+  scale: number;
+  onCommitText: (v: string) => void;
+  onCommitPosition: (pos: { x: number; y: number; width: number; height: number } | undefined) => void;
+}) {
   const [editing, setEditing] = useState(false);
+  const [livePos, setLivePos] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const ref = useRef<HTMLElement>(null);
   useEffect(() => { if (editing) ref.current?.focus(); }, [editing]);
 
@@ -25,36 +40,160 @@ function SlideTitleBlock({ slide, theme, onCommit }: { slide: Slide; theme: Them
   const fontSize = isCover ? b * r ** 4 : b * r ** 3; // h1 (cover) vs h2 (section)
   const Tag = (isCover ? 'h1' : 'h2') as 'div';
 
+  const pos = slide.titlePosition;
+  const displayPos = livePos ?? (pos ? { x: pos.x, y: pos.y, w: pos.width ?? 30, h: pos.height ?? 15 } : null);
+
+  function toCanvasPct(dx: number, dy: number) {
+    return { dx: dx / scale / CANVAS_W * 100, dy: dy / scale / CANVAS_H * 100 };
+  }
+
+  function getRect() {
+    const el = ref.current;
+    const cv = canvasRef.current;
+    if (!el || !cv) return null;
+    const er = el.getBoundingClientRect();
+    const cr = cv.getBoundingClientRect();
+    return {
+      x: (er.left - cr.left) / scale / CANVAS_W * 100,
+      y: (er.top  - cr.top)  / scale / CANVAS_H * 100,
+      w: er.width  / scale / CANVAS_W * 100,
+      h: er.height / scale / CANVAS_H * 100,
+    };
+  }
+
+  function onMouseDown(e: React.MouseEvent) {
+    if (editing) return;
+    e.stopPropagation();
+    e.preventDefault();
+    onSelect();
+
+    const startRect = getRect();
+    if (!startRect) return;
+    const startMouse = { x: e.clientX, y: e.clientY };
+
+    const onMove = (me: MouseEvent) => {
+      const { dx, dy } = toCanvasPct(me.clientX - startMouse.x, me.clientY - startMouse.y);
+      setLivePos({
+        x: Math.max(0, Math.min(100 - startRect.w, startRect.x + dx)),
+        y: Math.max(0, Math.min(100 - startRect.h, startRect.y + dy)),
+        w: startRect.w,
+        h: startRect.h,
+      });
+    };
+    const onUp = (me: MouseEvent) => {
+      const { dx, dy } = toCanvasPct(me.clientX - startMouse.x, me.clientY - startMouse.y);
+      if (Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3) {
+        onCommitPosition({
+          x: Math.max(0, Math.min(100 - startRect.w, startRect.x + dx)),
+          y: Math.max(0, Math.min(100 - startRect.h, startRect.y + dy)),
+          width: startRect.w,
+          height: startRect.h,
+        });
+      }
+      setLivePos(null);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
   const style: React.CSSProperties = {
-    margin: `0 0 ${theme.spacing.elementGap}px 0`,
+    margin: displayPos ? 0 : `0 0 ${theme.spacing.elementGap}px 0`,
     fontSize,
     color: theme.colors.foreground,
     fontFamily: `'${theme.typography.headingFont}', system-ui, sans-serif`,
     lineHeight: 1.2,
     fontWeight: 700,
-    outline: 'none',
+    outline: selected ? '1.5px solid #6366f1' : '1px solid transparent',
+    outlineOffset: 2,
     textAlign: slide.layout === 'section' ? 'center' : 'left',
+    pointerEvents: 'auto',
+    boxSizing: 'border-box',
+    ...(displayPos
+      ? { position: 'absolute', left: `${displayPos.x}%`, top: `${displayPos.y}%`, width: `${displayPos.w}%`, zIndex: 10 }
+      : {}),
   };
 
-  if (!editing) {
-    return (
-      <Tag style={{ ...style, cursor: 'text', opacity: slide.title ? 1 : 0.4 }} onDoubleClick={() => setEditing(true)}>
-        {slide.title || 'Click to add a title'}
-      </Tag>
-    );
-  }
-
   return (
-    <Tag
-      ref={ref as React.RefObject<HTMLDivElement>}
-      contentEditable
-      suppressContentEditableWarning
-      style={style}
-      onBlur={(e) => { setEditing(false); onCommit(e.currentTarget.textContent ?? ''); }}
-      onKeyDown={(e) => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
-      dangerouslySetInnerHTML={{ __html: slide.title || '' }}
-    />
+    <>
+      {selected && !editing && (
+        <div
+          style={{
+            position: displayPos ? 'absolute' : 'static',
+            ...(displayPos ? { left: `${displayPos.x}%`, top: `${displayPos.y}%`, transform: 'translateY(-100%)' } : {}),
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: '#6366f1', color: '#fff',
+            fontSize: 10, padding: '2px 8px', borderRadius: '4px 4px 0 0',
+            pointerEvents: 'auto', zIndex: 30, whiteSpace: 'nowrap', width: 'max-content',
+          }}
+        >
+          <span style={{ fontWeight: 600 }}>title</span>
+          {!displayPos && <span style={{ opacity: 0.75 }}>· drag to reposition</span>}
+          {displayPos && (
+            <button
+              style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 10, opacity: 0.8, padding: '0 0 0 4px', textDecoration: 'underline' }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onCommitPosition(undefined); }}
+            >
+              reset position
+            </button>
+          )}
+        </div>
+      )}
+      {editing ? (
+        <Tag
+          ref={ref as React.RefObject<HTMLDivElement>}
+          contentEditable
+          suppressContentEditableWarning
+          style={style}
+          onBlur={(e) => { setEditing(false); onCommitText(e.currentTarget.textContent ?? ''); }}
+          onKeyDown={(e) => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+          dangerouslySetInnerHTML={{ __html: slide.title || '' }}
+        />
+      ) : (
+        <Tag
+          ref={ref as React.RefObject<HTMLDivElement>}
+          style={{ ...style, cursor: 'move', opacity: slide.title ? 1 : 0.4 }}
+          onMouseDown={onMouseDown}
+          onDoubleClick={(e) => { e.stopPropagation(); onSelect(); setEditing(true); }}
+        >
+          {slide.title || 'Click to add a title'}
+        </Tag>
+      )}
+    </>
   );
+}
+
+const COLUMN_LAYOUTS = new Set(['two-column', 'three-column', 'image-left', 'image-right']);
+
+/** Mirrors layout-templates.ts's twoColumnLayout/threeColumnLayout/imageColumnLayout column splits. */
+function splitFlowColumns(layout: Slide['layout'], flowEls: PresentationElement[]): PresentationElement[][] {
+  if (layout === 'two-column') {
+    const mid = Math.ceil(flowEls.length / 2);
+    return [flowEls.slice(0, mid), flowEls.slice(mid)];
+  }
+  if (layout === 'three-column') {
+    const third = Math.ceil(flowEls.length / 3);
+    return [flowEls.slice(0, third), flowEls.slice(third, third * 2), flowEls.slice(third * 2)];
+  }
+  if (layout === 'image-left' || layout === 'image-right') {
+    const imageEls = flowEls.filter((el) => el.type === 'image');
+    const otherEls = flowEls.filter((el) => el.type !== 'image');
+    return layout === 'image-left' ? [imageEls, otherEls] : [otherEls, imageEls];
+  }
+  return [flowEls];
+}
+
+/** Mirrors theme-css.ts's .ppt-columns--* grid-template-columns rules. */
+function gridTemplateColumnsFor(layout: Slide['layout']): string | undefined {
+  switch (layout) {
+    case 'two-column':   return '1fr 1fr';
+    case 'three-column': return '1fr 1fr 1fr';
+    case 'image-left':   return '1fr 1.2fr';
+    case 'image-right':  return '1.2fr 1fr';
+    default: return undefined;
+  }
 }
 
 function slideBackground(slide: Slide, theme: Theme): React.CSSProperties {
@@ -71,14 +210,27 @@ function slideBackground(slide: Slide, theme: Theme): React.CSSProperties {
 export default function EditCanvas() {
   const {
     presentation, selectedSlideIndex, selectedElementIndex, selectedElementIndices,
-    selectElement, setSelectedElements, deleteSelectedElements, updateSlideTitle,
+    selectElement, setSelectedElements, deleteSelectedElements, updateSlideTitle, updateSlideTitlePosition,
+    updateSlideContentScale, splitSlideAt,
   } = useEditorStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef    = useRef<HTMLDivElement>(null);
+  const flowWrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const [titleSelected, setTitleSelected] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  // Selecting a real element (from ElementWidget, marquee, or Ctrl+A — all outside
+  // this component) deselects the title, keeping selection exclusive.
+  useEffect(() => {
+    if (selectedElementIndices.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing selection exclusivity with state owned by sibling components, not derivable from render
+      setTitleSelected(false);
+    }
+  }, [selectedElementIndices]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -93,6 +245,26 @@ export default function EditCanvas() {
     return () => obs.disconnect();
   }, []);
 
+  // Overflow detection: compares the (already-scaled, if slide.contentScale is set)
+  // rendered content height against the available slide content area. Measuring via
+  // getBoundingClientRect (not scrollHeight) means this correctly reflects any
+  // `transform: scale()` shrink already applied, so it clears once content actually fits.
+  useEffect(() => {
+    const wrapper = flowWrapperRef.current;
+    if (!wrapper || scale <= 0) return;
+    const check = () => {
+      const footerH = CANVAS_H * (0.07876 + 0.03097);
+      const padY = presentation.theme.spacing.slidePaddingY;
+      const availableH = CANVAS_H - footerH - padY * 2;
+      const contentH = wrapper.getBoundingClientRect().height / scale;
+      setIsOverflowing(contentH > availableH + 2);
+    };
+    check();
+    const obs = new ResizeObserver(check);
+    obs.observe(wrapper);
+    return () => obs.disconnect();
+  }, [selectedSlideIndex, scale, presentation]);
+
   // Delete/Backspace removes the current multi-selection (ignored while typing in an input/contentEditable).
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -106,6 +278,25 @@ export default function EditCanvas() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [selectedElementIndices, selectedSlideIndex, deleteSelectedElements]);
+
+  // Ctrl/Cmd+A selects every (non-template-graphic) element on the current slide.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'a') return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      const currentSlide = presentation.slides[selectedSlideIndex];
+      if (!currentSlide) return;
+      e.preventDefault();
+      const allIndices = currentSlide.elements
+        .map((el, i) => ({ el, i }))
+        .filter(({ el }) => !el.isTemplateGraphic)
+        .map(({ i }) => i);
+      setSelectedElements(allIndices);
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [presentation, selectedSlideIndex, setSelectedElements]);
 
   const slide = presentation.slides[selectedSlideIndex];
   if (!slide) return null;
@@ -181,6 +372,7 @@ export default function EditCanvas() {
         setSelectedElements(hitIndices);
       } else {
         selectElement(null);
+        setTitleSelected(false);
       }
       setMarquee(null);
     };
@@ -223,6 +415,44 @@ export default function EditCanvas() {
     } as Partial<PresentationElement>);
   };
 
+  function handleShrinkToFit() {
+    const wrapper = flowWrapperRef.current;
+    if (!wrapper || scale <= 0) return;
+    const footerH = CANVAS_H * (0.07876 + 0.03097);
+    const padY = theme.spacing.slidePaddingY;
+    const availableH = CANVAS_H - footerH - padY * 2;
+    const currentContentH = wrapper.getBoundingClientRect().height / scale;
+    if (currentContentH <= 0) return;
+    const currentScale = slide.contentScale ?? 1;
+    // currentContentH already reflects currentScale (measured post-transform), so scale
+    // relative to it to get the new ABSOLUTE factor applied to the original content.
+    const neededScale = Math.max(0.4, Math.min(1, currentScale * (availableH / currentContentH)));
+    updateSlideContentScale(selectedSlideIndex, neededScale >= 0.999 ? undefined : neededScale);
+  }
+
+  function handleSplitSlide() {
+    const cv = canvasRef.current;
+    if (!cv || scale <= 0) return;
+    const cr = cv.getBoundingClientRect();
+    const footerH = CANVAS_H * (0.07876 + 0.03097);
+    const padY = theme.spacing.slidePaddingY;
+    const boundaryY = CANVAS_H - footerH - padY;
+
+    // Find the first element whose BOTTOM edge crosses the boundary — that's the
+    // first element actually causing the overflow, so it (and everything after) moves.
+    let splitIdx: number | null = null;
+    for (const el of flowEls) {
+      const idx = slide.elements.indexOf(el);
+      const node = cv.querySelector(`[data-el-idx="${idx}"]`) as HTMLElement | null;
+      if (!node) continue;
+      const rect = node.getBoundingClientRect();
+      const bottomY = (rect.bottom - cr.top) / scale;
+      if (bottomY > boundaryY) { splitIdx = idx; break; }
+    }
+    if (splitIdx === null) return;
+    splitSlideAt(selectedSlideIndex, splitIdx);
+  }
+
   return (
     <div
       ref={containerRef}
@@ -249,6 +479,33 @@ export default function EditCanvas() {
         Click to select · Double-click to edit text · Drag to move
       </div>
 
+      {/* Overflow warning — content taller than the slide's usable area */}
+      {isOverflowing && (
+        <div
+          style={{
+            position: 'absolute', top: 44, left: '50%', transform: 'translateX(-50%)', zIndex: 45,
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: 'rgba(120,53,15,0.95)', border: '1px solid rgba(251,146,60,0.5)',
+            borderRadius: 8, padding: '6px 12px', fontSize: 11, color: '#fed7aa',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
+          }}
+        >
+          <span>⚠️ Content overflows the slide</span>
+          <button
+            onClick={handleShrinkToFit}
+            style={{ background: 'rgba(251,146,60,0.2)', border: '1px solid rgba(251,146,60,0.4)', color: '#fed7aa', borderRadius: 4, padding: '3px 8px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}
+          >
+            Shrink to fit
+          </button>
+          <button
+            onClick={handleSplitSlide}
+            style={{ background: 'rgba(251,146,60,0.2)', border: '1px solid rgba(251,146,60,0.4)', color: '#fed7aa', borderRadius: 4, padding: '3px 8px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}
+          >
+            Split into new slide
+          </button>
+        </div>
+      )}
+
       {/* Canvas wrapper - occupies exactly scaled size so it stays centred, but can grow if content overflows */}
       <div style={{ margin: 'auto', width: CANVAS_W * scale, minHeight: CANVAS_H * scale, height: 'max-content', position: 'relative', flexShrink: 0 }}>
         <div
@@ -271,45 +528,104 @@ export default function EditCanvas() {
           onMouseDown={handleCanvasMouseDown}
           onContextMenu={handleContextMenu}
         >
-          {/* Flow elements — stacked in their natural order.
-              cover/section layouts vertically-center this block to match the
-              `.ppt-layout-cover`/`.ppt-layout-section` CSS rules in theme-css.ts. */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              flex: 1,
-              gap: theme.spacing.elementGap,
-              padding: `${theme.spacing.slidePaddingY}px ${theme.spacing.slidePaddingX}px`,
-              pointerEvents: 'none',
-              justifyContent: (slide.layout === 'cover' || slide.layout === 'section') ? 'center' : 'flex-start',
-              alignItems: slide.layout === 'section' ? 'center' : 'flex-start',
-              textAlign: slide.layout === 'section' ? 'center' : 'left',
-            }}
-          >
-            {(slide.layout === 'cover' || slide.layout === 'section') && (
-              <div style={{ pointerEvents: 'auto' }}>
-                <SlideTitleBlock
-                  slide={slide}
-                  theme={theme}
-                  onCommit={(v) => updateSlideTitle(selectedSlideIndex, v)}
-                />
-              </div>
-            )}
-            {flowEls.map((el) => {
-              const idx = slide.elements.indexOf(el);
-              return (
-                <div key={el.id} style={{ pointerEvents: 'auto' }}>
-                  <ElementWidget
-                    element={el}
-                    elementIndex={idx}
-                    isSelected={selectedSet.has(idx)}
-                    {...sharedProps}
+          {/* Flow elements. cover/section vertically-center to match theme-css.ts;
+              two-column/three-column/image-left/image-right split into a CSS grid to
+              match layout-templates.ts's twoColumnLayout/threeColumnLayout/imageColumnLayout. */}
+          {(() => {
+            const isColumnLayout = COLUMN_LAYOUTS.has(slide.layout);
+            const isCentered = ['cover', 'section', 'full-image', 'full-video', 'quote'].includes(slide.layout);
+            const isCenteredBoth = ['section', 'full-image', 'full-video', 'quote'].includes(slide.layout);
+            const isTextCentered = ['section', 'quote'].includes(slide.layout);
+
+            // Uniform shrink-to-fit — pure visual scale (no reflow), mirrors layout-templates.ts.
+            const contentScale = slide.contentScale;
+            const scaleStyle: React.CSSProperties | undefined = (contentScale && contentScale < 1)
+              ? { transform: `scale(${contentScale})`, transformOrigin: 'top left', width: `${(100 / contentScale).toFixed(4)}%` }
+              : undefined;
+
+            return (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  flex: 1,
+                  padding: `${theme.spacing.slidePaddingY}px ${theme.spacing.slidePaddingX}px`,
+                  pointerEvents: 'none',
+                  justifyContent: !isColumnLayout && isCentered ? 'center' : 'flex-start',
+                  alignItems: !isColumnLayout && isCenteredBoth ? 'center' : 'flex-start',
+                }}
+              >
+              {/* Naturally-sized (not flex:1-stretched) — this is what overflow
+                  detection measures, so it reflects real content height, not the
+                  parent's stretched-to-fill-canvas height. */}
+              <div
+                ref={flowWrapperRef}
+                style={{
+                  display: isColumnLayout ? 'grid' : 'flex',
+                  flexDirection: isColumnLayout ? undefined : 'column',
+                  gridTemplateColumns: isColumnLayout ? gridTemplateColumnsFor(slide.layout) : undefined,
+                  gap: isColumnLayout ? theme.spacing.elementGap * 2 : theme.spacing.elementGap,
+                  width: '100%',
+                  pointerEvents: 'none',
+                  alignItems: !isColumnLayout && isCenteredBoth ? 'center' : 'flex-start',
+                  textAlign: !isColumnLayout && isTextCentered ? 'center' : 'left',
+                }}
+              >
+                {(slide.layout === 'cover' || slide.layout === 'section') && (
+                  <SlideTitleBlock
+                    slide={slide}
+                    theme={theme}
+                    selected={titleSelected}
+                    onSelect={() => { setTitleSelected(true); selectElement(null); }}
+                    canvasRef={canvasRef as React.RefObject<HTMLDivElement>}
+                    scale={scale}
+                    onCommitText={(v) => updateSlideTitle(selectedSlideIndex, v)}
+                    onCommitPosition={(p) => updateSlideTitlePosition(selectedSlideIndex, p)}
                   />
-                </div>
-              );
-            })}
-          </div>
+                )}
+
+                {isColumnLayout ? (
+                  splitFlowColumns(slide.layout, flowEls).map((colEls, colIdx) => (
+                    <div
+                      key={colIdx}
+                      style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.elementGap, overflow: 'hidden', pointerEvents: 'none', ...scaleStyle }}
+                    >
+                      {colEls.map((el) => {
+                        const idx = slide.elements.indexOf(el);
+                        return (
+                          <div key={el.id} style={{ pointerEvents: 'auto' }}>
+                            <ElementWidget
+                              element={el}
+                              elementIndex={idx}
+                              isSelected={selectedSet.has(idx)}
+                              {...sharedProps}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.elementGap, pointerEvents: 'none', ...scaleStyle }}>
+                    {flowEls.map((el) => {
+                      const idx = slide.elements.indexOf(el);
+                      return (
+                        <div key={el.id} style={{ pointerEvents: 'auto' }}>
+                          <ElementWidget
+                            element={el}
+                            elementIndex={idx}
+                            isSelected={selectedSet.has(idx)}
+                            {...sharedProps}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              </div>
+            );
+          })()}
 
           {/* Absolute elements — freely positioned */}
           {absEls.map((el) => {
@@ -383,11 +699,12 @@ export default function EditCanvas() {
           })()}
 
           {/* Hardcoded pixel-perfect PES Footer */}
-          <PESFooter 
-            slideIndex={selectedSlideIndex} 
-            totalSlides={presentation.slides.length} 
-            systemName={presentation.meta?.title || 'Name of System'} 
+          <PESFooter
+            slideIndex={selectedSlideIndex}
+            totalSlides={presentation.slides.length}
+            systemName={presentation.meta?.title || 'Name of System'}
             baseHeight={CANVAS_H}
+            footer={presentation.footer}
           />
 
           {/* Marquee (rubber-band) selection rectangle */}

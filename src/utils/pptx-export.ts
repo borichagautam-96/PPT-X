@@ -40,8 +40,10 @@ import type {
   VideoElement,
   Theme,
   Asset,
+  FooterConfig,
 } from '@/core/schema';
 import { slugify } from './download.ts';
+import { resolveFooter } from '@/core/footer-defaults';
 
 // ─── Slide canvas dimensions (inches, 16:9) ───────────────────────────────────
 const SLIDE_W_IN = 13.33; // inches — pptxgenjs default for widescreen
@@ -431,6 +433,7 @@ function buildSlide(
   theme: Theme,
   assetMap: Map<string, Asset>,
   logoDataUri: string,
+  footer: Required<FooterConfig>,
 ) {
   // Background colour (gradients and image backgrounds are not supported natively
   // in pptxgenjs v3 — use solid fill from first gradient stop or theme bg)
@@ -492,7 +495,7 @@ function buildSlide(
   });
 
   // Gray bar — left text (deliverable / system name)
-  pSlide.addText('<Deliverable_No_RevNo> | All rights reserved with Larsen & Toubro Limited.', {
+  pSlide.addText(footer.deliverableText, {
     x: SLIDE_W_IN * 0.0216, y: grayBarY, w: SLIDE_W_IN * 0.65, h: grayBarH,
     fontSize: 7, color: '000000', fontFace: 'Arial',
     valign: 'middle', wrap: false,
@@ -505,15 +508,15 @@ function buildSlide(
     valign: 'middle', align: 'right', wrap: false,
   });
 
-  // Blue bar — aerospace text (left)
-  pSlide.addText('Aerospace | Electronics | Land & Marine – Platforms & Systems', {
+  // Blue bar — org text (left)
+  pSlide.addText(footer.orgLine, {
     x: SLIDE_W_IN * 0.026, y: blueBarY, w: SLIDE_W_IN * 0.34, h: blueBarH,
     fontSize: 9, color: 'D9D9D9', fontFace: 'Trebuchet MS',
     valign: 'middle', wrap: false,
   });
 
   // Blue bar — copyright text (centre)
-  pSlide.addText('\u00a9 Larsen & Toubro Limited: Restricted', {
+  pSlide.addText(footer.copyrightText, {
     x: SLIDE_W_IN * 0.338, y: blueBarY, w: SLIDE_W_IN * 0.32, h: blueBarH,
     fontSize: 9, color: 'D9D9D9', fontFace: 'Trebuchet MS',
     valign: 'middle', align: 'center', wrap: false,
@@ -558,11 +561,13 @@ export async function exportPptx(presentation: Presentation): Promise<void> {
     presentation.assets.map((a) => [a.id, a]),
   );
 
-  // Fetch the L&T logo from the public folder and convert to a base64 data URI
-  // so pptxgenjs can embed it without needing a live server.
+  const footer = resolveFooter(presentation.footer);
+
+  // Fetch the footer logo and convert to a base64 data URI so pptxgenjs can
+  // embed it without needing a live server.
   let logoDataUri = '';
   try {
-    const res = await fetch('/lt_logo.jpeg');
+    const res = await fetch(footer.logoUrl);
     if (res.ok) {
       const blob = await res.blob();
       logoDataUri = await new Promise<string>((resolve, reject) => {
@@ -578,7 +583,7 @@ export async function exportPptx(presentation: Presentation): Promise<void> {
 
   for (const [index, slide] of presentation.slides.entries()) {
     const pSlide = pptx.addSlide();
-    buildSlide(pSlide, slide, index, presentation.slides.length, presentation.theme, assetMap, logoDataUri);
+    buildSlide(pSlide, slide, index, presentation.slides.length, presentation.theme, assetMap, logoDataUri, footer);
   }
 
   const fileName = slugify(presentation.meta.title) + '.pptx';

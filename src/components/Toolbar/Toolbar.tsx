@@ -10,6 +10,7 @@ import InsertMediaModal from './InsertMediaModal.tsx';
 import GitLabModal from '../GitLab/GitLabModal.tsx';
 import PptxImportModal from './PptxImportModal.tsx';
 import ThemeEditorModal from './ThemeEditorModal.tsx';
+import FooterSettingsModal from './FooterSettingsModal.tsx';
 import VideoExportModal from './VideoExportModal.tsx';
 import AnalyticsDashboard from '../Analytics/AnalyticsDashboard.tsx';
 
@@ -70,6 +71,7 @@ export default function Toolbar() {
   const [importOpen,     setImportOpen]     = useState(false);
   const [pptxImportOpen, setPptxImportOpen] = useState(false);
   const [themeOpen,      setThemeOpen]      = useState(false);
+  const [footerOpen,     setFooterOpen]     = useState(false);
   const [videoOpen,      setVideoOpen]      = useState(false);
   const [analyticsOpen,  setAnalyticsOpen]  = useState(false);
   const [gitlabOpen,     setGitlabOpen]     = useState(false);
@@ -216,6 +218,9 @@ export default function Toolbar() {
           <button className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all" onClick={() => setThemeOpen(true)}>
             🎨 Theme
           </button>
+          <button className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all" onClick={() => setFooterOpen(true)}>
+            🏷️ Footer
+          </button>
           <button className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all" onClick={() => setTemplateOpen(true)}>
             {TEMPLATE_ICON} Templates
           </button>
@@ -294,6 +299,7 @@ export default function Toolbar() {
       {importOpen     && <MarkdownImportModal onClose={() => setImportOpen(false)} />}
       {pptxImportOpen && <PptxImportModal     onClose={() => setPptxImportOpen(false)} />}
       {themeOpen      && <ThemeEditorModal    onClose={() => setThemeOpen(false)} />}
+      {footerOpen     && <FooterSettingsModal onClose={() => setFooterOpen(false)} />}
       {videoOpen      && <VideoExportModal    onClose={() => setVideoOpen(false)} />}
       {analyticsOpen  && <AnalyticsDashboard  onClose={() => setAnalyticsOpen(false)} />}
       {templateOpen   && <TemplatePickerModal onClose={() => setTemplateOpen(false)} />}

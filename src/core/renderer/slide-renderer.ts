@@ -24,7 +24,7 @@ import { escapeHtml } from './utils.ts';
 
 export function renderSlide(slide: Slide, ctx: RenderContext, slideIndex: number = 0): string {
   const sectionAttrs = buildSectionAttrs(slide, ctx);
-  const inner = applyLayout(slide.layout, slide.elements, slide.title, ctx, slideIndex);
+  const inner = applyLayout(slide.layout, slide.elements, slide.title, ctx, slideIndex, slide.titlePosition, slide.contentScale);
   const notes = slide.notes
     ? `\n<aside class="notes">${escapeHtml(slide.notes)}</aside>`
     : '';
@@ -37,7 +37,7 @@ export function renderSlide(slide: Slide, ctx: RenderContext, slideIndex: number
         const subAttrs = buildSectionAttrs(sub, ctx);
         // We could pass slideIndex + '.' + subIdx if we wanted, but for now we'll just pass slideIndex
         // or a calculated flat index if that was desired. For now, pass slideIndex.
-        const subInner = applyLayout(sub.layout, sub.elements, sub.title, ctx, slideIndex);
+        const subInner = applyLayout(sub.layout, sub.elements, sub.title, ctx, slideIndex, sub.titlePosition, sub.contentScale);
         return `<section${subAttrs}>\n${subInner}\n</section>`;
       })
       .join('\n');

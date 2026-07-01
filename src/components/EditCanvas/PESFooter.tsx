@@ -1,15 +1,18 @@
 import React from 'react';
-import type { Presentation } from '@/core/schema';
+import type { FooterConfig } from '@/core/schema';
+import { resolveFooter } from '@/core/footer-defaults';
 
 interface PESFooterProps {
   slideIndex: number;
   totalSlides: number;
   systemName?: string;
   baseHeight?: number;
+  footer?: FooterConfig;
 }
 
-export default function PESFooter({ slideIndex, totalSlides, systemName = 'Name of System', baseHeight = 900 }: PESFooterProps) {
+export default function PESFooter({ slideIndex, totalSlides, systemName = 'Name of System', baseHeight = 900, footer }: PESFooterProps) {
   const slideNum = slideIndex + 1;
+  const { deliverableText, orgLine, copyrightText, logoUrl } = resolveFooter(footer);
 
   // Calculate fixed pixel heights based on the original 16:9 aspect ratio
   const blueBarH = baseHeight * 0.07876;
@@ -69,7 +72,7 @@ export default function PESFooter({ slideIndex, totalSlides, systemName = 'Name 
         }}
       >
         <span>
-          {'<'}Deliverable_No_RevNo{'>'} | All rights reserved with Larsen &amp; Toubro Limited. |{' '}
+          {deliverableText} |{' '}
           {systemName === 'Name of System' || systemName === 'Untitled Presentation' ? (
             <>
               <span style={{ color: '#FF0000' }}>{'<'}</span>{systemName}<span style={{ color: '#FF0000' }}>{'>'}</span>
@@ -107,7 +110,7 @@ export default function PESFooter({ slideIndex, totalSlides, systemName = 'Name 
           bottom: `${(blueBarH - baseHeight * 0.07876) / 2}px`,
           width: '28.149%',
           height: `${baseHeight * 0.07876}px`,
-          backgroundImage: 'url(/lt_logo.jpeg)',
+          backgroundImage: `url(${logoUrl})`,
           backgroundSize: '100% 100%',
           backgroundRepeat: 'no-repeat',
         }}
@@ -127,7 +130,7 @@ export default function PESFooter({ slideIndex, totalSlides, systemName = 'Name 
           color: '#D9D9D9',
         }}
       >
-        Aerospace | Electronics | Land &amp; Marine – Platforms &amp; Systems
+        {orgLine}
       </div>
 
       {/* Copyright Text */}
@@ -145,7 +148,7 @@ export default function PESFooter({ slideIndex, totalSlides, systemName = 'Name 
           color: '#D9D9D9',
         }}
       >
-        &copy; Larsen &amp; Toubro Limited: Restricted
+        {copyrightText}
       </div>
     </div>
   );
