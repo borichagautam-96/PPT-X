@@ -4,8 +4,10 @@ import type { Element as PEl, Theme, Asset, ElementPosition, WhiteboardElement }
 import CanvasElementContent from './CanvasElementContent.tsx';
 import WhiteboardModal from '../Whiteboard/WhiteboardModal.tsx';
 
-export const CANVAS_W = 1600;
-export const CANVAS_H = 900;
+// Must match the renderer's reference resolution (theme-css.ts: slideWidthPx = 1920)
+// so that fixed-px font sizes look the same relative size in Edit as in Preview/export.
+export const CANVAS_W = 1920;
+export const CANVAS_H = 1080;
 
 const HANDLES = ['tl', 'tc', 'tr', 'ml', 'mr', 'bl', 'bc', 'br'] as const;
 type Handle = typeof HANDLES[number];
@@ -25,6 +27,8 @@ interface Props {
   isSelected: boolean;
   theme: Theme;
   assets: Asset[];
+  /** All indices currently multi-selected on this slide (for group drag). */
+  selectedIndices?: number[];
 }
 
 function applyResizeDelta(
@@ -40,8 +44,10 @@ function applyResizeDelta(
   return { x, y, w, h };
 }
 
-export default function ElementWidget({ element, elementIndex, slideIndex, canvasRef, scale, isSelected, theme, assets }: Props) {
-  const { selectElement, updateElement } = useEditorStore();
+export default function ElementWidget({ element, elementIndex, slideIndex, canvasRef, scale, isSelected, theme, assets, selectedIndices }: Props) {
+  const { selectElement, updateElement, moveElementsBy } = useEditorStore();
+  const groupDragDelta = useEditorStore((s) => s.groupDragDelta);
+  const setGroupDragDelta = useEditorStore((s) => s.setGroupDragDelta);
   const widgetRef = useRef<HTMLDivElement>(null);
   const [hover, setHover]         = useState(false);
   const [editing, setEditing]     = useState(false);
@@ -49,7 +55,15 @@ export default function ElementWidget({ element, elementIndex, slideIndex, canva
   const [wbOpen, setWbOpen]       = useState(false);
 
   const isAbs = element.position.mode === 'absolute';
-  const displayPos = livePos ?? (isAbs ? element.position : null);
+  const isGroupMember = !!selectedIndices && selectedIndices.length > 1 && selectedIndices.includes(elementIndex);
+  const displayPos = livePos
+    ?? (isGroupMember && groupDragDelta && isAbs
+      ? {
+          ...element.position,
+          x: (element.position.x ?? 0) + groupDragDelta.dx,
+          y: (element.position.y ?? 0) + groupDragDelta.dy,
+        }
+      : (isAbs ? element.position : null));
 
   // ── helpers ──────────────────────────────────────────────────
   function toCanvasPct(clientDx: number, clientDy: number) {
@@ -70,9 +84,38 @@ export default function ElementWidget({ element, elementIndex, slideIndex, canva
     };
   }
 
+  // ── group drag (multiple selected elements moved together) ────
+  function onGroupDragStart(e: React.MouseEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    const indices = selectedIndices ?? [];
+    const startMouse = { x: e.clientX, y: e.clientY };
+
+    const onMove = (me: MouseEvent) => {
+      const { dx, dy } = toCanvasPct(me.clientX - startMouse.x, me.clientY - startMouse.y);
+      setGroupDragDelta({ dx, dy });
+    };
+    const onUp = (me: MouseEvent) => {
+      const { dx, dy } = toCanvasPct(me.clientX - startMouse.x, me.clientY - startMouse.y);
+      setGroupDragDelta(null);
+      if (Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3) {
+        moveElementsBy(slideIndex, indices, dx, dy);
+      }
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
   // ── drag to move ─────────────────────────────────────────────
   function onDragStart(e: React.MouseEvent) {
     if (editing) return;
+    // Shift/ctrl-click toggles this element in the multi-selection (handled by
+    // the onClick handler below) — stop the mousedown here so it doesn't start
+    // a drag or bubble up to the canvas and start a marquee selection instead.
+    if (e.shiftKey || e.ctrlKey || e.metaKey) { e.stopPropagation(); return; }
+    if (isGroupMember && isAbs) { onGroupDragStart(e); return; }
     e.stopPropagation();
     e.preventDefault();
 
@@ -232,7 +275,7 @@ export default function ElementWidget({ element, elementIndex, slideIndex, canva
       }}
       onMouseEnter={() => !isTemplate && setHover(true)}
       onMouseLeave={() => !isTemplate && setHover(false)}
-      onClick={(e) => { e.stopPropagation(); if (!isTemplate) selectElement(elementIndex); }}
+      onClick={(e) => { e.stopPropagation(); if (!isTemplate) selectElement(elementIndex, { additive: e.shiftKey || e.ctrlKey || e.metaKey }); }}
       onDoubleClick={(e) => {
         e.stopPropagation();
         if (isTemplate) return; // template graphics are not editable

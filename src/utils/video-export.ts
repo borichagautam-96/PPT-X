@@ -18,10 +18,10 @@
  *   - Some browsers (Firefox) require user gesture to start MediaRecorder.
  */
 
-import html2canvas from 'html2canvas';
 import type { Presentation } from '@/core/schema';
-import { renderPresentation } from '@/core/renderer';
 import { slugify } from './download.ts';
+import { mountHtmlInIframe, renderSlideHtml } from './slide-capture.ts';
+import html2canvas from 'html2canvas';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,67 +49,6 @@ export interface VideoExportProgress {
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Render a full HTML string into a temporarily-mounted, off-screen iframe,
- * wait for it to fully paint, then return the iframe element.
- */
-async function mountHtmlInIframe(html: string, w: number, h: number): Promise<HTMLIFrameElement> {
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = `
-    position: fixed;
-    left: -${w + 20}px;
-    top: 0;
-    width: ${w}px;
-    height: ${h}px;
-    opacity: 0;
-    pointer-events: none;
-    z-index: -1;
-    border: none;
-  `;
-  document.body.appendChild(iframe);
-  iframe.srcdoc = html;
-  // Wait for the iframe content to load and settle
-  await new Promise<void>((resolve) => {
-    iframe.onload = () => setTimeout(resolve, 800); // 800 ms for JS/CSS/fonts
-  });
-  return iframe;
-}
-
-/**
- * Generate the HTML for a single slide by rendering the whole presentation
- * and jumping Reveal.js to that slide index. We use a custom script appended
- * to the HTML to auto-navigate on init.
- */
-function renderSlideHtml(presentation: Presentation, slideIndex: number, w: number, h: number): string {
-  const baseHtml = renderPresentation(presentation, {
-    useCdn: true,
-    overrideRevealConfig: {
-      controls:    false,
-      progress:    false,
-      slideNumber: false,
-      history:     false,
-      autoSlide:   0,
-    },
-  });
-  // Append a script to jump to the target slide once Reveal initialises
-  const jumpScript = `
-  <script>
-    (function() {
-      var maxTries = 20;
-      function trySlide(tries) {
-        if (window.Reveal && window.Reveal.isReady && window.Reveal.isReady()) {
-          window.Reveal.slide(${slideIndex}, 0, 0);
-        } else if (tries > 0) {
-          setTimeout(function() { trySlide(tries - 1); }, 150);
-        }
-      }
-      trySlide(maxTries);
-    })();
-  </script>
-  `;
-  return baseHtml.replace('</body>', `${jumpScript}\n</body>`);
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

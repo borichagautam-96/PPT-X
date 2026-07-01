@@ -5,6 +5,58 @@ import ContextMenu from '../ContextMenu/ContextMenu.tsx';
 import PESFooter from './PESFooter.tsx';
 import type { Slide, Theme, Element as PresentationElement } from '@/core/schema';
 
+/**
+ * Some layouts (cover, section) synthesize their big title heading from
+ * `slide.title` rather than from an element in `slide.elements` — see
+ * coverLayout()/sectionLayout() in core/renderer/layout-templates.ts.
+ * Without this, those titles are invisible in the editor even though they
+ * render in Preview/export. This mirrors that behavior so Edit and Preview
+ * show the same content (exact cover/section flex-centering is not
+ * replicated here — only the heading itself).
+ */
+function SlideTitleBlock({ slide, theme, onCommit }: { slide: Slide; theme: Theme; onCommit: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => { if (editing) ref.current?.focus(); }, [editing]);
+
+  const b = theme.typography.baseSizePx;
+  const r = theme.typography.scaleRatio;
+  const isCover = slide.layout === 'cover';
+  const fontSize = isCover ? b * r ** 4 : b * r ** 3; // h1 (cover) vs h2 (section)
+  const Tag = (isCover ? 'h1' : 'h2') as 'div';
+
+  const style: React.CSSProperties = {
+    margin: `0 0 ${theme.spacing.elementGap}px 0`,
+    fontSize,
+    color: theme.colors.foreground,
+    fontFamily: `'${theme.typography.headingFont}', system-ui, sans-serif`,
+    lineHeight: 1.2,
+    fontWeight: 700,
+    outline: 'none',
+    textAlign: slide.layout === 'section' ? 'center' : 'left',
+  };
+
+  if (!editing) {
+    return (
+      <Tag style={{ ...style, cursor: 'text', opacity: slide.title ? 1 : 0.4 }} onDoubleClick={() => setEditing(true)}>
+        {slide.title || 'Click to add a title'}
+      </Tag>
+    );
+  }
+
+  return (
+    <Tag
+      ref={ref as React.RefObject<HTMLDivElement>}
+      contentEditable
+      suppressContentEditableWarning
+      style={style}
+      onBlur={(e) => { setEditing(false); onCommit(e.currentTarget.textContent ?? ''); }}
+      onKeyDown={(e) => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+      dangerouslySetInnerHTML={{ __html: slide.title || '' }}
+    />
+  );
+}
+
 function slideBackground(slide: Slide, theme: Theme): React.CSSProperties {
   const bg = slide.background;
   if (bg?.type === 'color' && bg.color) return { background: bg.color };
@@ -18,12 +70,15 @@ function slideBackground(slide: Slide, theme: Theme): React.CSSProperties {
 
 export default function EditCanvas() {
   const {
-    presentation, selectedSlideIndex, selectedElementIndex, selectElement,
+    presentation, selectedSlideIndex, selectedElementIndex, selectedElementIndices,
+    selectElement, setSelectedElements, deleteSelectedElements, updateSlideTitle,
   } = useEditorStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef    = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -37,6 +92,20 @@ export default function EditCanvas() {
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
+
+  // Delete/Backspace removes the current multi-selection (ignored while typing in an input/contentEditable).
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (selectedElementIndices.length === 0) return;
+      e.preventDefault();
+      deleteSelectedElements(selectedSlideIndex);
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedElementIndices, selectedSlideIndex, deleteSelectedElements]);
 
   const slide = presentation.slides[selectedSlideIndex];
   if (!slide) return null;
@@ -54,6 +123,7 @@ export default function EditCanvas() {
   const templateElIds = new Set(templateEls.map((el) => el.id));
   const absEls = allAbsEls.filter((el) => !templateElIds.has(el.id));
 
+  const selectedSet = new Set(selectedElementIndices);
 
   const sharedProps = {
     slideIndex: selectedSlideIndex,
@@ -61,15 +131,62 @@ export default function EditCanvas() {
     scale,
     theme,
     assets: presentation.assets,
+    selectedIndices: selectedElementIndices,
   };
-
-  const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     if (selectedElementIndex === null) return;
     setContextMenu({ x: e.clientX, y: e.clientY });
   };
+
+  // ── Marquee (rubber-band) selection — drag on empty canvas background ──
+  function handleCanvasMouseDown(e: React.MouseEvent) {
+    if (e.button !== 0) return;
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const cr = cv.getBoundingClientRect();
+    const toPct = (clientX: number, clientY: number) => ({
+      x: (clientX - cr.left) / scale / CANVAS_W * 100,
+      y: (clientY - cr.top)  / scale / CANVAS_H * 100,
+    });
+    const start = toPct(e.clientX, e.clientY);
+    let moved = false;
+
+    const onMove = (me: MouseEvent) => {
+      const cur = toPct(me.clientX, me.clientY);
+      if (Math.abs(me.clientX - e.clientX) > 3 || Math.abs(me.clientY - e.clientY) > 3) moved = true;
+      setMarquee({
+        x0: Math.min(start.x, cur.x), y0: Math.min(start.y, cur.y),
+        x1: Math.max(start.x, cur.x), y1: Math.max(start.y, cur.y),
+      });
+    };
+    const onUp = (me: MouseEvent) => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      if (moved) {
+        const cur = toPct(me.clientX, me.clientY);
+        const rect = {
+          x0: Math.min(start.x, cur.x), y0: Math.min(start.y, cur.y),
+          x1: Math.max(start.x, cur.x), y1: Math.max(start.y, cur.y),
+        };
+        const hitIndices = absEls
+          .filter((el) => el.position.mode === 'absolute')
+          .filter((el) => {
+            const ex0 = el.position.x ?? 0, ey0 = el.position.y ?? 0;
+            const ex1 = ex0 + (el.position.width ?? 0), ey1 = ey0 + (el.position.height ?? 0);
+            return ex0 < rect.x1 && ex1 > rect.x0 && ey0 < rect.y1 && ey1 > rect.y0;
+          })
+          .map((el) => slide.elements.indexOf(el));
+        setSelectedElements(hitIndices);
+      } else {
+        selectElement(null);
+      }
+      setMarquee(null);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
 
   const selectedElement = selectedElementIndex !== null ? slide.elements[selectedElementIndex] : null;
 
@@ -151,19 +268,34 @@ export default function EditCanvas() {
             color: theme.colors.foreground,
             ...bgStyle,
           }}
-          onClick={() => selectElement(null)}
+          onMouseDown={handleCanvasMouseDown}
           onContextMenu={handleContextMenu}
         >
-          {/* Flow elements — stacked in their natural order */}
+          {/* Flow elements — stacked in their natural order.
+              cover/section layouts vertically-center this block to match the
+              `.ppt-layout-cover`/`.ppt-layout-section` CSS rules in theme-css.ts. */}
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
+              flex: 1,
               gap: theme.spacing.elementGap,
               padding: `${theme.spacing.slidePaddingY}px ${theme.spacing.slidePaddingX}px`,
               pointerEvents: 'none',
+              justifyContent: (slide.layout === 'cover' || slide.layout === 'section') ? 'center' : 'flex-start',
+              alignItems: slide.layout === 'section' ? 'center' : 'flex-start',
+              textAlign: slide.layout === 'section' ? 'center' : 'left',
             }}
           >
+            {(slide.layout === 'cover' || slide.layout === 'section') && (
+              <div style={{ pointerEvents: 'auto' }}>
+                <SlideTitleBlock
+                  slide={slide}
+                  theme={theme}
+                  onCommit={(v) => updateSlideTitle(selectedSlideIndex, v)}
+                />
+              </div>
+            )}
             {flowEls.map((el) => {
               const idx = slide.elements.indexOf(el);
               return (
@@ -171,7 +303,7 @@ export default function EditCanvas() {
                   <ElementWidget
                     element={el}
                     elementIndex={idx}
-                    isSelected={idx === selectedElementIndex}
+                    isSelected={selectedSet.has(idx)}
                     {...sharedProps}
                   />
                 </div>
@@ -187,7 +319,7 @@ export default function EditCanvas() {
                 key={el.id}
                 element={el}
                 elementIndex={idx}
-                isSelected={idx === selectedElementIndex}
+                isSelected={selectedSet.has(idx)}
                 {...sharedProps}
               />
             );
@@ -240,7 +372,7 @@ export default function EditCanvas() {
                       <ElementWidget
                         element={el}
                         elementIndex={idx}
-                        isSelected={idx === selectedElementIndex}
+                        isSelected={selectedSet.has(idx)}
                         {...sharedProps}
                       />
                     </div>
@@ -257,6 +389,21 @@ export default function EditCanvas() {
             systemName={presentation.meta?.title || 'Name of System'} 
             baseHeight={CANVAS_H}
           />
+
+          {/* Marquee (rubber-band) selection rectangle */}
+          {marquee && (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${marquee.x0}%`, top: `${marquee.y0}%`,
+                width: `${marquee.x1 - marquee.x0}%`, height: `${marquee.y1 - marquee.y0}%`,
+                background: 'rgba(99,102,241,0.12)',
+                border: '1px solid rgba(99,102,241,0.7)',
+                zIndex: 100,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
 
           {/* Empty State Overlay */}
           {slide.elements.length === 0 && (
@@ -284,14 +431,18 @@ export default function EditCanvas() {
             { label: 'Bring Forward', icon: '⬆️', onClick: handleBringForward },
             { label: 'Send Backward', icon: '⬇️', onClick: handleSendBackward },
             { divider: true, label: '', onClick: () => {} },
-            { 
-              label: 'Delete', 
-              icon: '🗑️', 
-              danger: true, 
+            {
+              label: selectedElementIndices.length > 1 ? `Delete ${selectedElementIndices.length} elements` : 'Delete',
+              icon: '🗑️',
+              danger: true,
               onClick: () => {
-                const { deleteElement } = useEditorStore.getState();
-                deleteElement(selectedSlideIndex, selectedElementIndex);
-              } 
+                if (selectedElementIndices.length > 1) {
+                  deleteSelectedElements(selectedSlideIndex);
+                } else {
+                  const { deleteElement } = useEditorStore.getState();
+                  deleteElement(selectedSlideIndex, selectedElementIndex);
+                }
+              }
             },
           ]}
         />

@@ -129,7 +129,7 @@ export default function TemplatePickerModal({ onClose }: Props) {
     setDragOver(false);
     const file = e.dataTransfer.files[0];
     if (file) handleFile(file);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   // ─────────────────────────────────────────────────────────────────────────

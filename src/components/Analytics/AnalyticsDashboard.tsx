@@ -141,6 +141,7 @@ export default function AnalyticsDashboard({ onClose }: Props) {
   // Load stored events on mount and when switching to dashboard tab
   useEffect(() => {
     if (activeTab === 'dashboard') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- loading external storage, not derivable from render
       setEvents(loadEvents(presentationId));
     }
   }, [activeTab, presentationId]);

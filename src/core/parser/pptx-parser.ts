@@ -1343,14 +1343,14 @@ async function parseSlide(
   let layoutBg: Slide['background'] = { type: 'none' };
   
   if (rels.slideLayoutPath) {
-    const layoutRelsPath = rels.slideLayoutPath.replace(/([^\/]+)$/, '_rels/$1.rels');
+    const layoutRelsPath = rels.slideLayoutPath.replace(/([^/]+)$/, '_rels/$1.rels');
     const layoutRels = await parseRels(zip, layoutRelsPath);
     
     if (layoutRels.slideMasterPath) {
       const masterFile = zip.file(layoutRels.slideMasterPath);
       if (masterFile) {
         const masterXml = parseXml(await masterFile.async('string'));
-        const masterRelsPath = layoutRels.slideMasterPath.replace(/([^\/]+)$/, '_rels/$1.rels');
+        const masterRelsPath = layoutRels.slideMasterPath.replace(/([^/]+)$/, '_rels/$1.rels');
         const masterRels = await parseRels(zip, masterRelsPath);
         
         masterBg = parseBackground(masterXml, rawTheme, imageAssets, masterRels, allAssets);

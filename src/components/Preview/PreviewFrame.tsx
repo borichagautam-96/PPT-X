@@ -44,6 +44,7 @@ export default function PreviewFrame() {
   useEffect(() => {
     const url = makeBlobUrl(presentation);
     prevUrlRef.current = url;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- creating a blob URL is a side effect, not derivable during render
     setSrcUrl(url);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

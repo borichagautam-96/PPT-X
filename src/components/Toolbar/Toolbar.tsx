@@ -3,6 +3,7 @@ import { useEditorStore } from '../../store/useEditorStore.ts';
 import { exportHtmlSingleFile, exportHtmlZip } from '../../utils/download.ts';
 import { exportPdf } from '../../utils/pdf-export.ts';
 import { exportPptx } from '../../utils/pptx-export.ts';
+import { exportAllSlidesAsPngZip } from '../../utils/image-export.ts';
 import MarkdownImportModal from './MarkdownImportModal.tsx';
 import TemplatePickerModal from './TemplatePickerModal.tsx';
 import InsertMediaModal from './InsertMediaModal.tsx';
@@ -90,6 +91,13 @@ export default function Toolbar() {
     return () => { if (dirtyTimer.current) clearTimeout(dirtyTimer.current); };
   }, [isDirty, markSaved]);
 
+  function handleSave() {
+    if (dirtyTimer.current) { clearTimeout(dirtyTimer.current); dirtyTimer.current = null; }
+    markSaved();
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 1500);
+  }
+
   // Ctrl+S — save
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -123,13 +131,6 @@ export default function Toolbar() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function handleSave() {
-    if (dirtyTimer.current) { clearTimeout(dirtyTimer.current); dirtyTimer.current = null; }
-    markSaved();
-    setSaveFlash(true);
-    setTimeout(() => setSaveFlash(false), 1500);
-  }
-
   async function handleExportHtml() {
     setExporting(true);
     await exportHtmlSingleFile(presentation);
@@ -150,6 +151,15 @@ export default function Toolbar() {
     setExporting(true);
     try {
       await exportPptx(presentation);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleExportImages() {
+    setExporting(true);
+    try {
+      await exportAllSlidesAsPngZip(presentation);
     } finally {
       setExporting(false);
     }
@@ -247,6 +257,7 @@ export default function Toolbar() {
               <button className="w-full text-left px-3 py-2 text-[11px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { handleExportHtml(); document.body.click(); }} disabled={exporting}>HTML Site</button>
               <button className="w-full text-left px-3 py-2 text-[11px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { handleExportPdf(); document.body.click(); }} disabled={exporting}>PDF Document</button>
               <button className="w-full text-left px-3 py-2 text-[11px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { handleExportPptx(); document.body.click(); }} disabled={exporting}>PPTX File</button>
+              <button className="w-full text-left px-3 py-2 text-[11px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { handleExportImages(); document.body.click(); }} disabled={exporting}>Images (ZIP)</button>
             </div>
           </details>
 

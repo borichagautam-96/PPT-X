@@ -58,6 +58,10 @@ interface EditorState {
   presentation: Presentation;
   selectedSlideIndex: number;
   selectedElementIndex: number | null;
+  /** Full set of multi-selected element indices on the current slide (superset including selectedElementIndex when >1). */
+  selectedElementIndices: number[];
+  /** Ephemeral, non-persisted: live delta (% of canvas) while dragging a multi-selected group. Null when not dragging. */
+  groupDragDelta: { dx: number; dy: number } | null;
   isDirty: boolean;
   isPresentationMode: boolean;
   isEditMode: boolean;
@@ -77,7 +81,16 @@ interface EditorActions {
   parseFromMarkdown: (md: string) => void;
   parseFromAdoc: (adoc: string) => void;
   selectSlide: (index: number) => void;
-  selectElement: (index: number | null) => void;
+  /** Select a single element. Pass `additive: true` (shift/ctrl-click) to toggle it within the multi-selection instead of replacing it. */
+  selectElement: (index: number | null, opts?: { additive?: boolean }) => void;
+  /** Replace the full multi-selection set directly (used by marquee/rubber-band selection). */
+  setSelectedElements: (indices: number[]) => void;
+  /** Delete every currently multi-selected element on a slide in one undoable step. */
+  deleteSelectedElements: (slideIndex: number) => void;
+  /** Shift every absolute-positioned element among `indices` by (dxPct, dyPct) in one undoable step. */
+  moveElementsBy: (slideIndex: number, indices: number[], dxPct: number, dyPct: number) => void;
+  /** Set/clear the live group-drag preview delta (not undoable, not persisted). */
+  setGroupDragDelta: (delta: { dx: number; dy: number } | null) => void;
   enterEditMode: () => void;
   exitEditMode:  () => void;
 
@@ -126,6 +139,8 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       presentation: initialPresentation,
       selectedSlideIndex: 0,
       selectedElementIndex: null,
+      selectedElementIndices: [],
+      groupDragDelta: null,
       isDirty: false,
       userTemplates: [],
       isPresentationMode: false,
@@ -156,6 +171,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
           isDirty: true,
           selectedSlideIndex: safeSlide,
           selectedElementIndex: safeEl,
+          selectedElementIndices: safeEl === null ? [] : [safeEl],
         });
       },
 
@@ -173,6 +189,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
           isDirty: true,
           selectedSlideIndex: safeSlide,
           selectedElementIndex: safeEl,
+          selectedElementIndices: safeEl === null ? [] : [safeEl],
         });
       },
 
@@ -180,7 +197,8 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 
       loadPresentation: (p) => {
         get()._pushHistory();
-        set({ presentation: p, selectedSlideIndex: 0, selectedElementIndex: null, isDirty: false });
+        set({ presentation: p, selectedSlideIndex: 0, selectedElementIndex: null,
+            selectedElementIndices: [], isDirty: false });
       },
 
       parseFromMarkdown: (md) => {
@@ -225,7 +243,8 @@ export const useEditorStore = create<EditorState & EditorActions>()(
               }
             }, 
             selectedSlideIndex: 0, 
-            selectedElementIndex: null, 
+            selectedElementIndex: null,
+            selectedElementIndices: [], 
             isDirty: true 
           });
         } catch {
@@ -276,7 +295,8 @@ export const useEditorStore = create<EditorState & EditorActions>()(
               }
             }, 
             selectedSlideIndex: 0, 
-            selectedElementIndex: null, 
+            selectedElementIndex: null,
+            selectedElementIndices: [], 
             isDirty: true 
           });
         } catch {
@@ -286,9 +306,32 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 
       // ── Non-mutating selection ─────────────────────────────────────────
 
-      selectSlide: (index) => set({ selectedSlideIndex: index, selectedElementIndex: null }),
+      selectSlide: (index) => set({ selectedSlideIndex: index, selectedElementIndex: null, selectedElementIndices: [] }),
 
-      selectElement: (index) => set({ selectedElementIndex: index }),
+      selectElement: (index, opts) => {
+        if (!opts?.additive) {
+          set({ selectedElementIndex: index, selectedElementIndices: index === null ? [] : [index] });
+          return;
+        }
+        if (index === null) return;
+        set((state) => {
+          const already = state.selectedElementIndices.includes(index);
+          const next = already
+            ? state.selectedElementIndices.filter((i) => i !== index)
+            : [...state.selectedElementIndices, index];
+          return {
+            selectedElementIndices: next,
+            selectedElementIndex: next.length ? next[next.length - 1] : null,
+          };
+        });
+      },
+
+      setSelectedElements: (indices) => set({
+        selectedElementIndices: indices,
+        selectedElementIndex: indices.length ? indices[indices.length - 1] : null,
+      }),
+
+      setGroupDragDelta: (delta) => set({ groupDragDelta: delta }),
 
       // ── Slide mutations ────────────────────────────────────────────────
 
@@ -373,23 +416,81 @@ export const useEditorStore = create<EditorState & EditorActions>()(
             : state.selectedElementIndex === elementIndex ? null
             : state.selectedElementIndex > elementIndex   ? state.selectedElementIndex - 1
             : state.selectedElementIndex,
+          selectedElementIndices: [],
         }));
       },
 
-      addElement: (slideIndex, element, asset) => {
+      deleteSelectedElements: (slideIndex) => {
+        const { selectedElementIndices } = get();
+        if (selectedElementIndices.length === 0) return;
+        const toDelete = new Set(selectedElementIndices);
         get()._pushHistory();
         set((state) => ({
           isDirty: true,
           presentation: {
             ...state.presentation,
-            assets: asset ? [...state.presentation.assets, asset] : state.presentation.assets,
             slides: state.presentation.slides.map((s, si) => {
               if (si !== slideIndex) return s;
-              return { ...s, elements: [...s.elements, element] };
+              return {
+                ...s,
+                elements: s.elements.filter((_, ei) => !toDelete.has(ei)),
+              };
             }),
           },
-          selectedElementIndex: state.presentation.slides[slideIndex]?.elements.length ?? null,
+          selectedElementIndex: null,
+          selectedElementIndices: [],
         }));
+      },
+
+      moveElementsBy: (slideIndex, indices, dxPct, dyPct) => {
+        if (indices.length === 0) return;
+        const targets = new Set(indices);
+        get()._pushHistory();
+        set((state) => ({
+          isDirty: true,
+          presentation: {
+            ...state.presentation,
+            slides: state.presentation.slides.map((s, si) => {
+              if (si !== slideIndex) return s;
+              return {
+                ...s,
+                elements: s.elements.map((el, ei) => {
+                  if (!targets.has(ei) || el.position.mode !== 'absolute') return el;
+                  const w = el.position.width ?? 0;
+                  const h = el.position.height ?? 0;
+                  return {
+                    ...el,
+                    position: {
+                      ...el.position,
+                      x: Math.max(0, Math.min(100 - w, (el.position.x ?? 0) + dxPct)),
+                      y: Math.max(0, Math.min(100 - h, (el.position.y ?? 0) + dyPct)),
+                    },
+                  } as PresentationElement;
+                }),
+              };
+            }),
+          },
+        }));
+      },
+
+      addElement: (slideIndex, element, asset) => {
+        get()._pushHistory();
+        set((state) => {
+          const newIdx = state.presentation.slides[slideIndex]?.elements.length ?? null;
+          return {
+            isDirty: true,
+            presentation: {
+              ...state.presentation,
+              assets: asset ? [...state.presentation.assets, asset] : state.presentation.assets,
+              slides: state.presentation.slides.map((s, si) => {
+                if (si !== slideIndex) return s;
+                return { ...s, elements: [...s.elements, element] };
+              }),
+            },
+            selectedElementIndex: newIdx,
+            selectedElementIndices: newIdx === null ? [] : [newIdx],
+          };
+        });
       },
 
       // ── Slide list mutations ───────────────────────────────────────────
@@ -402,6 +503,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
             isDirty: true,
             selectedSlideIndex: state.presentation.slides.length,
             selectedElementIndex: null,
+            selectedElementIndices: [],
             presentation: {
               ...state.presentation,
               slides: [...state.presentation.slides, newSlide],
@@ -425,6 +527,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
             isDirty: true,
             selectedSlideIndex: newIndex,
             selectedElementIndex: null,
+            selectedElementIndices: [],
             presentation: {
               ...state.presentation,
               slides: slides.map((s, i) => ({ ...s, order: i })),
@@ -468,6 +571,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
             isDirty: true,
             selectedSlideIndex: index + 1,
             selectedElementIndex: null,
+            selectedElementIndices: [],
             presentation: { ...state.presentation, slides },
           };
         });
