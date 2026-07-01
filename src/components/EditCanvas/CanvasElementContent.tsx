@@ -5,8 +5,9 @@ import type {
   ImageElement, VideoElement, CodeElement,
   CalloutElement, TableElement, DiagramElement,
   QuizElement, ButtonElement, DividerElement,
-  EmbedElement, WhiteboardElement, ShapeElement,
+  EmbedElement, WhiteboardElement, ShapeElement, ChartElement,
 } from '@/core/schema';
+import ChartRenderer from './ChartRenderer.tsx';
 
 interface Props {
   element: PEl;
@@ -442,6 +443,23 @@ export default function CanvasElementContent({ element, theme, assets, editing, 
           </svg>
           <span style={{ fontSize: 13, fontWeight: 500 }}>Whiteboard</span>
           <span style={{ fontSize: 11, opacity: 0.6 }}>Double-click or click "Edit Whiteboard" to draw</span>
+        </div>
+      );
+    }
+
+    case 'chart': {
+      const el = element as ChartElement;
+      return (
+        <div style={{
+          width: '100%',
+          height: '100%',
+          minHeight: 180,
+          padding: '8px 4px 4px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
+          <ChartRenderer element={el} />
         </div>
       );
     }

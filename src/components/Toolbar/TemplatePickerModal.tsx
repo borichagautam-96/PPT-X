@@ -39,6 +39,7 @@ export default function TemplatePickerModal({ onClose }: Props) {
   const {
     loadPresentation, applyTheme,
     userTemplates, addUserTemplate, removeUserTemplate,
+    defaultTemplateId, setDefaultTemplate,
   } = useEditorStore();
 
   const [hovered,    setHovered]    = useState<string | null>(null);
@@ -225,8 +226,12 @@ export default function TemplatePickerModal({ onClose }: Props) {
                     t={t}
                     hovered={hovered}
                     setHovered={setHovered}
+                    isDefault={t.id === defaultTemplateId}
                     onApply={() => applyUser(t)}
                     onDelete={() => removeUserTemplate(t.id)}
+                    onSetDefault={() =>
+                      setDefaultTemplate(t.id === defaultTemplateId ? null : t.id)
+                    }
                   />
                 ))}
               </div>
@@ -347,18 +352,24 @@ function BuiltinTemplateCard({
 // ─── UserTemplateCard ─────────────────────────────────────────────────────────
 
 function UserTemplateCard({
-  t, hovered, setHovered, onApply, onDelete,
+  t, hovered, setHovered, onApply, onDelete, isDefault, onSetDefault,
 }: {
   t: UserImportedTemplate;
   hovered: string | null;
   setHovered: (id: string | null) => void;
   onApply: () => void;
   onDelete: () => void;
+  isDefault: boolean;
+  onSetDefault: () => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
-    <div className="group rounded-lg overflow-hidden border border-emerald-500/30 hover:border-emerald-400/50 transition-all duration-200 relative">
+    <div className={`group rounded-lg overflow-hidden border transition-all duration-200 relative ${
+      isDefault
+        ? 'border-amber-400/60 shadow-[0_0_12px_rgba(251,191,36,0.15)]'
+        : 'border-emerald-500/30 hover:border-emerald-400/50'
+    }`}>
       {/* Thumbnail */}
       <button
         className="w-full text-left focus:outline-none"
@@ -376,10 +387,15 @@ function UserTemplateCard({
           </div>
 
           {/* Imported badge */}
-          <div className="absolute top-2 left-2">
+          <div className="absolute top-2 left-2 flex items-center gap-1">
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white bg-emerald-600 shadow">
               ✅ Imported
             </span>
+            {isDefault && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-amber-900 bg-amber-400 shadow">
+                ⭐ Default
+              </span>
+            )}
           </div>
 
           {/* Slide count badge */}
@@ -402,8 +418,23 @@ function UserTemplateCard({
         </div>
       </button>
 
-      {/* Delete button */}
-      <div className="px-3 pb-2.5 bg-[#1e2433] flex justify-end">
+      {/* Bottom action bar: default toggle + delete */}
+      <div className="px-3 pb-2.5 bg-[#1e2433] flex items-center justify-between gap-2">
+        {/* Set as Default toggle */}
+        <button
+          onClick={onSetDefault}
+          title={isDefault ? 'Remove as default startup template' : 'Load this template automatically on startup'}
+          className={`flex items-center gap-1 text-[10px] font-semibold transition-colors ${
+            isDefault
+              ? 'text-amber-400 hover:text-amber-300'
+              : 'text-gray-500 hover:text-amber-400'
+          }`}
+        >
+          <span>{isDefault ? '⭐' : '☆'}</span>
+          <span>{isDefault ? 'Default on Startup' : 'Set as Default'}</span>
+        </button>
+
+        {/* Delete */}
         {confirmDelete ? (
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-400">Delete?</span>

@@ -73,6 +73,8 @@ interface EditorState {
   analyticsEndpoint: string | null;
   /** User-imported PPTX / JSON templates, persisted across reloads. */
   userTemplates: UserImportedTemplate[];
+  /** ID of the user template to auto-load on startup (null = use built-in showcase). */
+  defaultTemplateId: string | null;
   /** Snapshots of `presentation` before each mutating action (undo stack). */
   past: Presentation[];
   /** Snapshots pushed onto this stack when undoing (redo stack). */
@@ -138,6 +140,8 @@ interface EditorActions {
   addUserTemplate: (t: UserImportedTemplate) => void;
   /** Remove a user-imported template by id. */
   removeUserTemplate: (id: string) => void;
+  /** Mark a user template as the default to auto-load on startup. Pass null to clear. */
+  setDefaultTemplate: (id: string | null) => void;
 
   /** Internal: push current presentation snapshot onto the undo stack. */
   _pushHistory: () => void;
@@ -162,6 +166,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       groupDragStartRects: null,
       isDirty: false,
       userTemplates: [],
+      defaultTemplateId: null,
       isPresentationMode: false,
       isEditMode: true,
       gitlabConfig: null,
@@ -758,7 +763,13 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         set((state) => ({ userTemplates: [t, ...state.userTemplates] })),
 
       removeUserTemplate: (id) =>
-        set((state) => ({ userTemplates: state.userTemplates.filter((t) => t.id !== id) })),
+        set((state) => ({
+          userTemplates: state.userTemplates.filter((t) => t.id !== id),
+          // If the deleted template was the default, clear the default too
+          defaultTemplateId: state.defaultTemplateId === id ? null : state.defaultTemplateId,
+        })),
+
+      setDefaultTemplate: (id) => set({ defaultTemplateId: id }),
     }),
     {
       name: 'pptautomation-state',
@@ -769,12 +780,24 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         gitlabConfig: state.gitlabConfig,
         analyticsEndpoint: state.analyticsEndpoint,
         userTemplates: state.userTemplates,
+        defaultTemplateId: state.defaultTemplateId,
         // past and future (history stacks) are intentionally NOT persisted —
         // history is transient and should reset on every page load.
       }),
       // If persisted state has no slides (corrupted / empty), reset to showcase
       onRehydrateStorage: () => (state) => {
-        if (state && (!state.presentation?.slides?.length)) {
+        if (!state) return;
+        // Auto-load the user's chosen default template on startup
+        if (state.defaultTemplateId) {
+          const defaultTpl = state.userTemplates?.find((t) => t.id === state.defaultTemplateId);
+          if (defaultTpl) {
+            state.presentation = defaultTpl.presentation;
+            state.selectedSlideIndex = 0;
+            return;
+          }
+        }
+        // Fallback: if no slides, use built-in showcase
+        if (!state.presentation?.slides?.length) {
           state.presentation = SHOWCASE_PRESENTATION;
           state.selectedSlideIndex = 0;
         }

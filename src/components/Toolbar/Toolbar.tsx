@@ -13,6 +13,7 @@ import ThemeEditorModal from './ThemeEditorModal.tsx';
 import FooterSettingsModal from './FooterSettingsModal.tsx';
 import VideoExportModal from './VideoExportModal.tsx';
 import AnalyticsDashboard from '../Analytics/AnalyticsDashboard.tsx';
+import FindReplaceModal from './FindReplaceModal.tsx';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -68,17 +69,18 @@ export default function Toolbar() {
     undo, redo, past, future,
   } = useEditorStore();
 
-  const [importOpen,     setImportOpen]     = useState(false);
-  const [pptxImportOpen, setPptxImportOpen] = useState(false);
-  const [themeOpen,      setThemeOpen]      = useState(false);
-  const [footerOpen,     setFooterOpen]     = useState(false);
-  const [videoOpen,      setVideoOpen]      = useState(false);
-  const [analyticsOpen,  setAnalyticsOpen]  = useState(false);
-  const [gitlabOpen,     setGitlabOpen]     = useState(false);
-  const [templateOpen,   setTemplateOpen]   = useState(false);
-  const [insertOpen,     setInsertOpen]     = useState(false);
-  const [exporting,      setExporting]      = useState(false);
-  const [saveFlash,      setSaveFlash]      = useState(false);
+  const [importOpen,       setImportOpen]       = useState(false);
+  const [pptxImportOpen,   setPptxImportOpen]   = useState(false);
+  const [themeOpen,        setThemeOpen]        = useState(false);
+  const [footerOpen,       setFooterOpen]       = useState(false);
+  const [videoOpen,        setVideoOpen]        = useState(false);
+  const [analyticsOpen,    setAnalyticsOpen]    = useState(false);
+  const [gitlabOpen,       setGitlabOpen]       = useState(false);
+  const [templateOpen,     setTemplateOpen]     = useState(false);
+  const [insertOpen,       setInsertOpen]       = useState(false);
+  const [findReplaceOpen,  setFindReplaceOpen]  = useState(false);
+  const [exporting,        setExporting]        = useState(false);
+  const [saveFlash,        setSaveFlash]        = useState(false);
 
   // Auto-reset isDirty after 900 ms — localStorage persist is synchronous,
   // this is just the visual indicator.
@@ -113,7 +115,7 @@ export default function Toolbar() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDirty]);
 
-  // Ctrl+Z → undo  |  Ctrl+Y / Ctrl+Shift+Z → redo
+  // Ctrl+Z → undo  |  Ctrl+Y / Ctrl+Shift+Z → redo  |  Ctrl+H → find & replace
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const key = e.key.toLowerCase();
@@ -126,6 +128,9 @@ export default function Toolbar() {
       ) {
         e.preventDefault();
         redo();
+      } else if ((e.ctrlKey || e.metaKey) && key === 'h') {
+        e.preventDefault();
+        setFindReplaceOpen((v) => !v);
       }
     }
     window.addEventListener('keydown', onKeyDown);
@@ -285,6 +290,17 @@ export default function Toolbar() {
 
           {/* Present/Record */}
           <div className="flex items-center gap-1.5 ml-1">
+            <button
+              className="text-gray-400 hover:text-indigo-300 hover:bg-indigo-500/10 p-2 rounded transition-colors"
+              onClick={() => setFindReplaceOpen(true)}
+              title="Find & Replace (Ctrl+H)"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+                <path d="M3 15h6M3 19h4"/>
+              </svg>
+            </button>
             <button className="text-gray-400 hover:text-white hover:bg-white/10 p-2 rounded transition-colors" onClick={() => setVideoOpen(true)} title="Record presentation">
               🎬
             </button>
@@ -296,15 +312,16 @@ export default function Toolbar() {
       </header>
 
       {/* ── Modals ── */}
-      {importOpen     && <MarkdownImportModal onClose={() => setImportOpen(false)} />}
-      {pptxImportOpen && <PptxImportModal     onClose={() => setPptxImportOpen(false)} />}
-      {themeOpen      && <ThemeEditorModal    onClose={() => setThemeOpen(false)} />}
-      {footerOpen     && <FooterSettingsModal onClose={() => setFooterOpen(false)} />}
-      {videoOpen      && <VideoExportModal    onClose={() => setVideoOpen(false)} />}
-      {analyticsOpen  && <AnalyticsDashboard  onClose={() => setAnalyticsOpen(false)} />}
-      {templateOpen   && <TemplatePickerModal onClose={() => setTemplateOpen(false)} />}
-      {insertOpen     && <InsertMediaModal    onClose={() => setInsertOpen(false)} />}
-      {gitlabOpen     && <GitLabModal         onClose={() => setGitlabOpen(false)} />}
+      {importOpen       && <MarkdownImportModal onClose={() => setImportOpen(false)} />}
+      {pptxImportOpen   && <PptxImportModal     onClose={() => setPptxImportOpen(false)} />}
+      {themeOpen        && <ThemeEditorModal    onClose={() => setThemeOpen(false)} />}
+      {footerOpen       && <FooterSettingsModal onClose={() => setFooterOpen(false)} />}
+      {videoOpen        && <VideoExportModal    onClose={() => setVideoOpen(false)} />}
+      {analyticsOpen    && <AnalyticsDashboard  onClose={() => setAnalyticsOpen(false)} />}
+      {templateOpen     && <TemplatePickerModal onClose={() => setTemplateOpen(false)} />}
+      {insertOpen       && <InsertMediaModal    onClose={() => setInsertOpen(false)} />}
+      {gitlabOpen       && <GitLabModal         onClose={() => setGitlabOpen(false)} />}
+      {findReplaceOpen  && <FindReplaceModal    onClose={() => setFindReplaceOpen(false)} />}
     </>
   );
 }
