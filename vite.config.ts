@@ -4,6 +4,9 @@ import { resolve } from 'path';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  // Relative asset paths so the built output also works loaded via file://
+  // (Electron production build) in addition to being served from a web root.
+  base: './',
   plugins: [
     react(),
     VitePWA({
