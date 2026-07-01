@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Slide, SlideLayout, SlideBackground, TransitionConfig } from '@/core/schema';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 
@@ -20,6 +21,35 @@ interface Props {
   slideIndex: number;
 }
 
+/** Small "Apply to …" button with tick flash feedback */
+function ApplyBtn({
+  label, icon, onClick, color = 'indigo',
+}: { label: string; icon: string; onClick: () => void; color?: 'indigo' | 'emerald' }) {
+  const [flash, setFlash] = useState(false);
+  function handle() {
+    onClick();
+    setFlash(true);
+    setTimeout(() => setFlash(false), 1200);
+  }
+  const base = color === 'emerald'
+    ? 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10'
+    : 'border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/10';
+  return (
+    <button
+      onClick={handle}
+      title={label}
+      className={`flex items-center gap-1 px-2 py-1 rounded-md border text-[10px] font-semibold transition-all ${
+        flash
+          ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+          : `bg-surface-900 ${base}`
+      }`}
+    >
+      <span>{flash ? '✓' : icon}</span>
+      <span>{flash ? 'Applied!' : label}</span>
+    </button>
+  );
+}
+
 export default function SlideProperties({ slide, slideIndex }: Props) {
   const {
     updateSlideTitle,
@@ -28,6 +58,8 @@ export default function SlideProperties({ slide, slideIndex }: Props) {
     updateSlideAutoAnimate,
     updateSlideBackground,
     updateSlideTransition,
+    applyBackgroundToAll,
+    applyTransitionToAll,
   } = useEditorStore();
 
   // Background helpers
@@ -84,7 +116,7 @@ export default function SlideProperties({ slide, slideIndex }: Props) {
           </label>
 
           {/* Transition picker */}
-          <label className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1">
             <span className="field-label">Slide Transition</span>
             <select
               className="field-select"
@@ -95,7 +127,25 @@ export default function SlideProperties({ slide, slideIndex }: Props) {
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
-          </label>
+            {/* Apply buttons */}
+            <div className="flex items-center gap-1.5 mt-1">
+              <ApplyBtn
+                icon="✎"
+                label="This Slide"
+                color="indigo"
+                onClick={() => setTransition(transitionType)}
+              />
+              <ApplyBtn
+                icon="⊞"
+                label="All Slides"
+                color="emerald"
+                onClick={() => {
+                  const t = slide.transition;
+                  applyTransitionToAll(t);
+                }}
+              />
+            </div>
+          </div>
         </div>
       </details>
 
@@ -199,6 +249,22 @@ export default function SlideProperties({ slide, slideIndex }: Props) {
               </label>
             </div>
           )}
+
+          {/* Apply buttons */}
+          <div className="flex items-center gap-1.5 mt-3">
+            <ApplyBtn
+              icon="✎"
+              label="This Slide"
+              color="indigo"
+              onClick={() => updateSlideBackground(slideIndex, bg ?? { type: 'none' })}
+            />
+            <ApplyBtn
+              icon="⊞"
+              label="All Slides"
+              color="emerald"
+              onClick={() => applyBackgroundToAll(bg ?? { type: 'none' })}
+            />
+          </div>
         </div>
       </details>
 
@@ -245,3 +311,4 @@ export default function SlideProperties({ slide, slideIndex }: Props) {
     </div>
   );
 }
+

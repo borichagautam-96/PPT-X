@@ -122,7 +122,9 @@ interface EditorActions {
   reorderSlide: (from: number, to: number) => void;
   updateSlideAutoAnimate: (slideIndex: number, autoAnimateId: string | undefined) => void;
   updateSlideBackground: (slideIndex: number, background: SlideBackground) => void;
+  applyBackgroundToAll: (background: SlideBackground) => void;
   updateSlideTransition: (slideIndex: number, transition: SlideTransitionOverride | undefined) => void;
+  applyTransitionToAll: (transition: SlideTransitionOverride | undefined) => void;
   applyTheme: (theme: Theme) => void;
   /** Replace the presentation's branding footer config (undefined fields fall back to built-in defaults). */
   updateFooterConfig: (footer: FooterConfig) => void;
@@ -683,6 +685,28 @@ export const useEditorStore = create<EditorState & EditorActions>()(
             slides: state.presentation.slides.map((s, i) =>
               i === slideIndex ? { ...s, transition } : s,
             ),
+          },
+        }));
+      },
+
+      applyBackgroundToAll: (background) => {
+        get()._pushHistory();
+        set((state) => ({
+          isDirty: true,
+          presentation: {
+            ...state.presentation,
+            slides: state.presentation.slides.map((s) => ({ ...s, background })),
+          },
+        }));
+      },
+
+      applyTransitionToAll: (transition) => {
+        get()._pushHistory();
+        set((state) => ({
+          isDirty: true,
+          presentation: {
+            ...state.presentation,
+            slides: state.presentation.slides.map((s) => ({ ...s, transition })),
           },
         }));
       },

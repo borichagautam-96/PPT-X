@@ -17,13 +17,13 @@ import AnalyticsDashboard from '../Analytics/AnalyticsDashboard.tsx';
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 
 const PRESENT_ICON = (
-  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
     <path d="M6 3.5l6 4.5-6 4.5V3.5z"/>
   </svg>
 );
 
 const TEMPLATE_ICON = (
-  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
     <rect x="1" y="1" width="6" height="6" rx="1"/>
     <rect x="9" y="1" width="6" height="6" rx="1"/>
     <rect x="1" y="9" width="6" height="6" rx="1"/>
@@ -32,13 +32,13 @@ const TEMPLATE_ICON = (
 );
 
 const INSERT_ICON = (
-  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
     <path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
 const EDIT_ICON = (
-  <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
     <path d="M11.7 1.3a1 1 0 0 1 1.4 0l1.6 1.6a1 1 0 0 1 0 1.4L5 14H2v-3L11.7 1.3z"/>
   </svg>
 );
@@ -169,7 +169,7 @@ export default function Toolbar() {
 
   return (
     <>
-      <header className="flex items-center justify-between px-4 h-12 bg-surface-900/80 backdrop-blur-md border-b border-white/5 flex-none select-none z-50 relative">
+      <header className="flex items-center justify-between px-4 h-14 bg-surface-900/80 backdrop-blur-md border-b border-white/5 flex-none select-none z-50 relative">
         
         {/* ── Left: Brand & Status ── */}
         <div className="flex items-center gap-3 w-[30%]">
@@ -192,42 +192,42 @@ export default function Toolbar() {
 
           {/* Save Status & Undo/Redo */}
           <div className="flex items-center gap-1 ml-1">
-            <span className={`text-[9px] font-medium transition-colors px-1 ${isDirty ? 'text-gray-500 animate-pulse' : saveFlash ? 'text-emerald-400' : 'text-emerald-500/40'}`}>
+            <span className={`text-[10px] font-medium transition-colors px-1 ${isDirty ? 'text-gray-500 animate-pulse' : saveFlash ? 'text-emerald-400' : 'text-emerald-500/40'}`}>
               {isDirty ? '● Unsaved' : saveFlash ? '✓ Saved' : '✓ Saved'}
             </span>
             <div className="flex items-center ml-1 border-l border-white/5 pl-1">
-              <button className="text-gray-500 hover:text-gray-300 disabled:opacity-30 disabled:hover:text-gray-500 p-0.5 rounded hover:bg-white/5 transition-colors" onClick={undo} disabled={past.length === 0} title="Undo (Ctrl+Z)">
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 4v2h5a2 2 0 1 1 0 4h-5v2l-4-4 4-4z"/></svg>
+              <button className="text-gray-500 hover:text-gray-300 disabled:opacity-30 disabled:hover:text-gray-500 p-1 rounded hover:bg-white/5 transition-colors" onClick={undo} disabled={past.length === 0} title="Undo (Ctrl+Z)">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 4v2h5a2 2 0 1 1 0 4h-5v2l-4-4 4-4z"/></svg>
               </button>
-              <button className="text-gray-500 hover:text-gray-300 disabled:opacity-30 disabled:hover:text-gray-500 p-0.5 rounded hover:bg-white/5 transition-colors" onClick={redo} disabled={future.length === 0} title="Redo (Ctrl+Y)">
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 4l4 4-4 4v-2h-5a2 2 0 1 1 0-4h5V4z"/></svg>
+              <button className="text-gray-500 hover:text-gray-300 disabled:opacity-30 disabled:hover:text-gray-500 p-1 rounded hover:bg-white/5 transition-colors" onClick={redo} disabled={future.length === 0} title="Redo (Ctrl+Y)">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 4l4 4-4 4v-2h-5a2 2 0 1 1 0-4h5V4z"/></svg>
               </button>
             </div>
           </div>
         </div>
 
         {/* ── Center: Core Modes & Tabs ── */}
-        <div className="flex items-center justify-center gap-0.5 w-[40%] bg-surface-800/50 p-0.5 rounded-lg border border-white/5 shadow-inner">
+        <div className="flex items-center justify-center gap-1 w-[40%] bg-surface-800/50 p-1 rounded-lg border border-white/5 shadow-inner">
           <button
             title={isEditMode ? 'Switch to Preview' : 'Switch to Edit'}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-semibold transition-all ${isEditMode ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-surface-600 text-white shadow'}`}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-[13px] font-semibold transition-all ${isEditMode ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-surface-600 text-white shadow'}`}
             onClick={() => isEditMode ? exitEditMode() : enterEditMode()}
           >
             {isEditMode ? <>{EDIT_ICON} Editing</> : <>👁 Preview</>}
           </button>
-          <button className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all" onClick={() => setThemeOpen(true)}>
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all" onClick={() => setThemeOpen(true)}>
             🎨 Theme
           </button>
-          <button className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all" onClick={() => setFooterOpen(true)}>
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all" onClick={() => setFooterOpen(true)}>
             🏷️ Footer
           </button>
-          <button className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all" onClick={() => setTemplateOpen(true)}>
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all" onClick={() => setTemplateOpen(true)}>
             {TEMPLATE_ICON} Templates
           </button>
-          <button className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all" onClick={() => setInsertOpen(true)}>
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all" onClick={() => setInsertOpen(true)}>
             {INSERT_ICON} Media
           </button>
-          <button className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all" onClick={() => setAnalyticsOpen(true)}>
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all" onClick={() => setAnalyticsOpen(true)}>
             📊 Analytics
           </button>
         </div>
@@ -237,16 +237,16 @@ export default function Toolbar() {
           
           {/* Imports Dropdown using details/summary */}
           <details className="relative group">
-            <summary className="list-none cursor-pointer flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-white px-2 py-1 rounded-md hover:bg-white/5 transition-colors">
+            <summary className="list-none cursor-pointer flex items-center gap-1.5 text-[13px] font-medium text-gray-400 hover:text-white px-3 py-1.5 rounded-md hover:bg-white/5 transition-colors">
               ☁️ Cloud
-              <svg width="8" height="8" viewBox="0 0 16 16" fill="currentColor" className="opacity-50"><path d="M4 6l4 4 4-4H4z"/></svg>
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="opacity-50"><path d="M4 6l4 4 4-4H4z"/></svg>
             </summary>
-            <div className="absolute top-full right-0 mt-1 w-32 bg-surface-800 border border-white/10 rounded-md shadow-xl overflow-hidden hidden group-open:block z-50">
-              <button className="w-full text-left px-3 py-2 text-[11px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { setImportOpen(true); document.body.click(); }}>Import MD</button>
-              <button className="w-full text-left px-3 py-2 text-[11px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { setPptxImportOpen(true); document.body.click(); }}>Import PPTX</button>
+            <div className="absolute top-full right-0 mt-1 w-36 bg-surface-800 border border-white/10 rounded-md shadow-xl overflow-hidden hidden group-open:block z-50">
+              <button className="w-full text-left px-3 py-2.5 text-[12px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { setImportOpen(true); document.body.click(); }}>Import MD</button>
+              <button className="w-full text-left px-3 py-2.5 text-[12px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { setPptxImportOpen(true); document.body.click(); }}>Import PPTX</button>
               <div className="h-px bg-white/10 w-full" />
-              <button className={`w-full text-left px-3 py-2 text-[11px] transition-colors flex items-center gap-1.5 ${gitlabConfig ? 'text-orange-400 hover:bg-orange-500/10' : 'text-gray-300 hover:bg-white/10 hover:text-white'}`} onClick={() => { setGitlabOpen(true); document.body.click(); }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51 1.22 3.78a.84.84 0 0 1-.3.92z"/></svg>
+              <button className={`w-full text-left px-3 py-2.5 text-[12px] transition-colors flex items-center gap-1.5 ${gitlabConfig ? 'text-orange-400 hover:bg-orange-500/10' : 'text-gray-300 hover:bg-white/10 hover:text-white'}`} onClick={() => { setGitlabOpen(true); document.body.click(); }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51 1.22 3.78a.84.84 0 0 1-.3.92z"/></svg>
                 GitLab
               </button>
             </div>
@@ -254,15 +254,15 @@ export default function Toolbar() {
 
           {/* Exports Dropdown */}
           <details className="relative group">
-            <summary className="list-none cursor-pointer flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-white px-2 py-1 rounded-md hover:bg-white/5 transition-colors">
+            <summary className="list-none cursor-pointer flex items-center gap-1.5 text-[13px] font-medium text-gray-400 hover:text-white px-3 py-1.5 rounded-md hover:bg-white/5 transition-colors">
               ⬇️ Export
-              <svg width="8" height="8" viewBox="0 0 16 16" fill="currentColor" className="opacity-50"><path d="M4 6l4 4 4-4H4z"/></svg>
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="opacity-50"><path d="M4 6l4 4 4-4H4z"/></svg>
             </summary>
-            <div className="absolute top-full right-0 mt-1 w-28 bg-surface-800 border border-white/10 rounded-md shadow-xl overflow-hidden hidden group-open:block z-50">
-              <button className="w-full text-left px-3 py-2 text-[11px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { handleExportHtml(); document.body.click(); }} disabled={exporting}>HTML Site</button>
-              <button className="w-full text-left px-3 py-2 text-[11px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { handleExportPdf(); document.body.click(); }} disabled={exporting}>PDF Document</button>
-              <button className="w-full text-left px-3 py-2 text-[11px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { handleExportPptx(); document.body.click(); }} disabled={exporting}>PPTX File</button>
-              <button className="w-full text-left px-3 py-2 text-[11px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { handleExportImages(); document.body.click(); }} disabled={exporting}>Images (ZIP)</button>
+            <div className="absolute top-full right-0 mt-1 w-32 bg-surface-800 border border-white/10 rounded-md shadow-xl overflow-hidden hidden group-open:block z-50">
+              <button className="w-full text-left px-3 py-2.5 text-[12px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { handleExportHtml(); document.body.click(); }} disabled={exporting}>HTML Site</button>
+              <button className="w-full text-left px-3 py-2.5 text-[12px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { handleExportPdf(); document.body.click(); }} disabled={exporting}>PDF Document</button>
+              <button className="w-full text-left px-3 py-2.5 text-[12px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { handleExportPptx(); document.body.click(); }} disabled={exporting}>PPTX File</button>
+              <button className="w-full text-left px-3 py-2.5 text-[12px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { handleExportImages(); document.body.click(); }} disabled={exporting}>Images (ZIP)</button>
             </div>
           </details>
 
@@ -270,25 +270,25 @@ export default function Toolbar() {
 
           {/* Slide Mgmt Pills */}
           <div className="flex items-center bg-surface-900/60 border border-white/5 rounded overflow-hidden">
-            <button className="text-gray-400 hover:text-white hover:bg-white/10 p-1.5 transition-colors" onClick={addSlide} title="Add Slide">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+            <button className="text-gray-400 hover:text-white hover:bg-white/10 p-2 transition-colors" onClick={addSlide} title="Add Slide">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
             </button>
-            <div className="w-px h-3 bg-white/10" />
-            <button className="text-gray-400 hover:text-white hover:bg-white/10 p-1.5 transition-colors" onClick={() => duplicateSlide(selectedSlideIndex)} title="Duplicate Slide">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none"/><path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" stroke="currentColor" strokeWidth="1.5" fill="none"/></svg>
+            <div className="w-px h-4 bg-white/10" />
+            <button className="text-gray-400 hover:text-white hover:bg-white/10 p-2 transition-colors" onClick={() => duplicateSlide(selectedSlideIndex)} title="Duplicate Slide">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none"/><path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2" stroke="currentColor" strokeWidth="1.5" fill="none"/></svg>
             </button>
-            <div className="w-px h-3 bg-white/10" />
-            <button className="text-red-400/70 hover:text-red-400 hover:bg-red-500/10 p-1.5 transition-colors" onClick={() => deleteSlide(selectedSlideIndex)} disabled={presentation.slides.length <= 1} title="Delete Slide">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none"/></svg>
+            <div className="w-px h-4 bg-white/10" />
+            <button className="text-red-400/70 hover:text-red-400 hover:bg-red-500/10 p-2 transition-colors" onClick={() => deleteSlide(selectedSlideIndex)} disabled={presentation.slides.length <= 1} title="Delete Slide">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none"/></svg>
             </button>
           </div>
 
           {/* Present/Record */}
-          <div className="flex items-center gap-1 ml-1">
-            <button className="text-gray-400 hover:text-white hover:bg-white/10 p-1.5 rounded transition-colors" onClick={() => setVideoOpen(true)} title="Record presentation">
+          <div className="flex items-center gap-1.5 ml-1">
+            <button className="text-gray-400 hover:text-white hover:bg-white/10 p-2 rounded transition-colors" onClick={() => setVideoOpen(true)} title="Record presentation">
               🎬
             </button>
-            <button className="bg-indigo-500 hover:bg-indigo-400 text-white text-[11px] font-bold px-3 py-1.5 rounded shadow-sm shadow-indigo-500/20 flex items-center gap-1.5 transition-colors" onClick={enterPresentationMode}>
+            <button className="bg-indigo-500 hover:bg-indigo-400 text-white text-[13px] font-bold px-4 py-2 rounded shadow-sm shadow-indigo-500/20 flex items-center gap-2 transition-colors" onClick={enterPresentationMode}>
               {PRESENT_ICON} Present
             </button>
           </div>

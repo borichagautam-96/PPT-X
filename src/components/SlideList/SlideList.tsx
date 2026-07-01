@@ -117,6 +117,7 @@ export default function SlideList() {
             <SlideThumb
               slide={slide}
               index={index}
+              displayNumber={index + 1}
               isSelected={index === selectedSlideIndex}
               onClick={() => selectSlide(index)}
             />

@@ -2,7 +2,8 @@ import type { Slide } from '@/core/schema';
 
 interface Props {
   slide: Slide;
-  index: number;
+  index: number;        // real position in the full slides array (0-based)
+  displayNumber: number; // 1-based slide number shown in the badge
   isSelected: boolean;
   onClick: () => void;
 }
@@ -22,7 +23,7 @@ function slideSubtitle(slide: Slide): string {
   return first.type;
 }
 
-export default function SlideThumb({ slide, index, isSelected, onClick }: Props) {
+export default function SlideThumb({ slide, index, displayNumber, isSelected, onClick }: Props) {
   return (
     <button
       onClick={onClick}
@@ -40,7 +41,7 @@ export default function SlideThumb({ slide, index, isSelected, onClick }: Props)
             isSelected ? 'bg-accent text-white shadow-sm' : 'bg-surface-800 text-gray-400 group-hover:bg-surface-700'
           }`}
         >
-          {index + 1}
+          {displayNumber}
         </span>
         <span className={`text-[9px] font-bold uppercase tracking-widest ${isSelected ? 'text-accent/80' : 'text-gray-600 group-hover:text-gray-400'}`}>{slide.layout}</span>
       </div>
