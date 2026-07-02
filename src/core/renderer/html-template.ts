@@ -75,6 +75,14 @@ export interface HtmlTemplateOptions {
    */
   vendorUrls?: VendorUrls;
   /**
+   * Local base path for Reveal's math (KaTeX) plugin, e.g. '/vendor/katex'.
+   * Only meaningful for real local paths — NOT set when `vendorUrls` holds
+   * data: URIs (portable HTML export), since KaTeX's own CSS/JS/font files
+   * aren't inlined and a local path wouldn't exist in a standalone export.
+   * Omitted → the plugin falls back to its own CDN default.
+   */
+  katexLocalBase?: string;
+  /**
    * When set, a <base href> tag is injected so that absolute paths like
    * /vendor/... resolve correctly inside blob: URL iframes.
    */
@@ -100,7 +108,7 @@ export function generateHtml(
 ): string {
   const {
     useCdn = true, embedAssets = false, editorMode = false,
-    vendorUrls, baseHref, analyticsEndpoint, overrideRevealConfig,
+    vendorUrls, katexLocalBase, baseHref, analyticsEndpoint, overrideRevealConfig,
   } = options;
 
   const sectionsHtml = renderAllSlides(presentation, embedAssets);
@@ -114,7 +122,7 @@ export function generateHtml(
 
   // Force controls to false globally so the black navigation arrows don't overlap the custom L&T footer
   mergedReveal.controls = false;
-  const revealConfig = buildRevealConfig(mergedReveal, editorMode, slideW, slideH);
+  const revealConfig = buildRevealConfig(mergedReveal, editorMode, slideW, slideH, katexLocalBase);
   // Skip Google Fonts when local vendor URLs are provided — fonts are already
   // bundled into the editor app and the preview inherits the parent page's CSS.
   const fonts        = vendorUrls ? '' : buildGoogleFontLink(presentation.theme);
@@ -208,7 +216,7 @@ ${analyticsRuntime(
 
 // ─── REVEAL.JS CONFIG ────────────────────────────────────────
 
-function buildRevealConfig(cfg: RevealSettings | Partial<RevealSettings>, editorMode = false, slideW = 1920, slideH = 1080): string {
+function buildRevealConfig(cfg: RevealSettings | Partial<RevealSettings>, editorMode = false, slideW = 1920, slideH = 1080, katexLocalBase?: string): string {
   const config = {
     width:          slideW,
     height:         slideH,
@@ -235,6 +243,7 @@ function buildRevealConfig(cfg: RevealSettings | Partial<RevealSettings>, editor
     autoSlide:         cfg.autoSlide || false,
     mouseWheel:        cfg.mouseWheel,
     previewLinks:      cfg.previewLinks,
+    ...(katexLocalBase ? { katex: { local: katexLocalBase } } : {}),
   };
 
   const configJson = JSON.stringify(config, null, 4)

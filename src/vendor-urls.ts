@@ -15,3 +15,9 @@ export const LOCAL_VENDOR_URLS: VendorUrls = {
   highlightCss:          '/vendor/highlight/github-dark.min.css',
   mermaidJs:             '/vendor/mermaid/mermaid.min.js',
 };
+
+/** Local copy of Reveal.js's PDF print stylesheet (compiled from .scss — see scripts/copy-vendor.mjs). */
+export const LOCAL_REVEAL_PRINT_CSS = '/vendor/reveal/print/pdf.css';
+
+/** Local base path for Reveal's math (KaTeX) plugin — pass as `katexLocalBase` alongside LOCAL_VENDOR_URLS. */
+export const LOCAL_KATEX_BASE = '/vendor/katex';

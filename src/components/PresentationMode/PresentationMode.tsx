@@ -1,7 +1,7 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { renderPresentation } from '@/core/renderer';
 import { useEditorStore } from '../../store/useEditorStore.ts';
-import { LOCAL_VENDOR_URLS } from '../../vendor-urls.ts';
+import { LOCAL_VENDOR_URLS, LOCAL_KATEX_BASE } from '../../vendor-urls.ts';
 
 export default function PresentationMode() {
   const { presentation, selectedSlideIndex, exitPresentationMode } = useEditorStore();
@@ -10,7 +10,7 @@ export default function PresentationMode() {
   const [showNotes, setShowNotes] = useState(false);
 
   const html = useMemo(
-    () => renderPresentation(presentation, { editorMode: true, vendorUrls: LOCAL_VENDOR_URLS }),
+    () => renderPresentation(presentation, { editorMode: true, vendorUrls: LOCAL_VENDOR_URLS, katexLocalBase: LOCAL_KATEX_BASE }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [], // intentionally render once on mount; navigated via onLoad
   );

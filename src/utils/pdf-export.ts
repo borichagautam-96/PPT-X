@@ -15,10 +15,7 @@
 
 import type { Presentation } from '@/core/schema';
 import { renderPresentation } from '@/core/renderer';
-
-// Match the version pinned in html-template.ts
-const REVEAL_VERSION  = '6.0.1';
-const PRINT_PDF_CSS   = `https://cdn.jsdelivr.net/npm/reveal.js@${REVEAL_VERSION}/dist/print/pdf.css`;
+import { LOCAL_VENDOR_URLS, LOCAL_REVEAL_PRINT_CSS, LOCAL_KATEX_BASE } from '../vendor-urls.ts';
 
 // ─── Instruction overlay (visible on screen, hidden when printing) ────────────
 
@@ -89,8 +86,16 @@ const PDF_OVERLAY_HTML = `
  * dialog will render each slide as a full page.
  */
 export function exportPdf(presentation: Presentation): void {
-  // 1. Generate the complete standalone HTML (CDN mode).
-  const baseHtml = renderPresentation(presentation, { useCdn: true });
+  // 1. Generate the complete standalone HTML using the app's own locally
+  //    bundled vendor files (no CDN) — works fully offline. baseHref lets the
+  //    resulting blob: URL tab resolve those absolute /vendor/... paths
+  //    against the app's own origin.
+  const baseHtml = renderPresentation(presentation, {
+    useCdn: false,
+    vendorUrls: LOCAL_VENDOR_URLS,
+    katexLocalBase: LOCAL_KATEX_BASE,
+    baseHref: typeof window !== 'undefined' ? window.location.origin + '/' : '/',
+  });
 
   // 2. Inject the Reveal.js PDF print stylesheet into <head>.
   //    Using media="print" keeps the screen display as a normal presentation;
@@ -99,7 +104,7 @@ export function exportPdf(presentation: Presentation): void {
     '</head>',
     [
       '  <!-- Reveal.js PDF print layout (injected by PPTAutomation PDF export) -->',
-      `  <link rel="stylesheet" href="${PRINT_PDF_CSS}" media="print">`,
+      `  <link rel="stylesheet" href="${LOCAL_REVEAL_PRINT_CSS}" media="print">`,
       '</head>',
     ].join('\n'),
   );

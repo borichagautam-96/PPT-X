@@ -11,6 +11,7 @@
 import html2canvas from 'html2canvas';
 import type { Presentation } from '@/core/schema';
 import { renderPresentation } from '@/core/renderer';
+import { LOCAL_VENDOR_URLS, LOCAL_KATEX_BASE } from '../vendor-urls.ts';
 
 /**
  * Render a full HTML string into a temporarily-mounted, off-screen iframe,
@@ -45,7 +46,9 @@ export async function mountHtmlInIframe(html: string, w: number, h: number): Pro
  */
 export function renderSlideHtml(presentation: Presentation, slideIndex: number, w: number, h: number): string {
   const baseHtml = renderPresentation(presentation, {
-    useCdn: true,
+    useCdn: false,
+    vendorUrls: LOCAL_VENDOR_URLS,
+    katexLocalBase: LOCAL_KATEX_BASE,
     overrideRevealConfig: {
       controls:    false,
       progress:    false,

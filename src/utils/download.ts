@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import type { Presentation } from '@/core/schema';
 import { renderPresentation } from '@/core/renderer';
+import { buildInlineVendorUrls, inlineFooterLogo } from './vendor-inline.ts';
 
 export function downloadBlob(data: Uint8Array | string, filename: string, mimeType: string): void {
   const blob =
@@ -29,14 +30,27 @@ export function slugify(title: string): string {
   );
 }
 
+/**
+ * Exports a single fully self-contained HTML file — reveal.js/mermaid/highlight.js
+ * are inlined as data: URIs (not CDN links), so the file works offline, via
+ * file://, or shared to anyone with no access to the app's own server.
+ */
 export async function exportHtmlSingleFile(presentation: Presentation): Promise<void> {
-  const html = renderPresentation(presentation, { useCdn: true });
+  const [vendorUrls, inlinedPresentation] = await Promise.all([
+    buildInlineVendorUrls(),
+    inlineFooterLogo(presentation),
+  ]);
+  const html = renderPresentation(inlinedPresentation, { useCdn: false, vendorUrls });
   const filename = `${slugify(presentation.meta.title)}.html`;
   downloadBlob(html, filename, 'text/html');
 }
 
 export async function exportHtmlZip(presentation: Presentation): Promise<void> {
-  const html = renderPresentation(presentation, { useCdn: true });
+  const [vendorUrls, inlinedPresentation] = await Promise.all([
+    buildInlineVendorUrls(),
+    inlineFooterLogo(presentation),
+  ]);
+  const html = renderPresentation(inlinedPresentation, { useCdn: false, vendorUrls });
   const zip = new JSZip();
   zip.file('index.html', html);
   const data = await zip.generateAsync({ type: 'uint8array' });

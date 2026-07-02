@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 import { renderPresentation } from '@/core/renderer';
 import type { Presentation } from '@/core/schema';
-import { LOCAL_VENDOR_URLS } from '../../vendor-urls.ts';
+import { LOCAL_VENDOR_URLS, LOCAL_KATEX_BASE } from '../../vendor-urls.ts';
 
 type RevealWin = Window & {
   Reveal?: { slide: (h: number, v?: number) => void };
@@ -18,6 +18,7 @@ function makeBlobUrl(presentation: Presentation): string {
   const html = renderPresentation(presentation, {
     editorMode: true,
     vendorUrls: LOCAL_VENDOR_URLS,
+    katexLocalBase: LOCAL_KATEX_BASE,
     baseHref,
   });
   return URL.createObjectURL(new Blob([html], { type: 'text/html' }));
