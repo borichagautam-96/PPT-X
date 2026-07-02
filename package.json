@@ -1,6 +1,8 @@
 {
   "name": "pptautomation",
   "version": "0.1.0",
+  "description": "Markdown-first presentation editor — build professional decks in minutes",
+  "author": "PPTAutomation Team",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -70,7 +72,8 @@
     "productName": "PPTAuto",
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "!node_modules/**/*"
     ],
     "directories": {
       "output": "release"

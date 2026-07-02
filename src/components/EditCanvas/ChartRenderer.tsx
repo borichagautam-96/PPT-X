@@ -186,7 +186,7 @@ export default function ChartRenderer({ element }: Props) {
             outerRadius="80%"
             dataKey="value"
             label={showLabels ? ({ name, percent }) =>
-              `${name} ${(percent * 100).toFixed(0)}%` : undefined}
+              `${name} ${((percent ?? 0) * 100).toFixed(0)}%` : undefined}
             labelLine={showLabels}
           >
             {pieData.map((entry, i) => (
@@ -213,7 +213,7 @@ export default function ChartRenderer({ element }: Props) {
             outerRadius="75%"
             dataKey="value"
             label={showLabels ? ({ name, percent }) =>
-              `${name} ${(percent * 100).toFixed(0)}%` : undefined}
+              `${name} ${((percent ?? 0) * 100).toFixed(0)}%` : undefined}
             labelLine={showLabels}
           >
             {pieData.map((entry, i) => (

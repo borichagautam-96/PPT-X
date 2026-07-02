@@ -11,7 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useEditorStore } from '../../store/useEditorStore.ts';
 import type {
   TextElement, HeadingElement, BulletListElement,
-  CalloutElement, PresentationElement,
+  CalloutElement, Element as PresentationElement,
 } from '@/core/schema';
 
 interface Props {
@@ -178,8 +178,8 @@ export default function FindReplaceModal({ onClose }: Props) {
       if (!el) return;
 
       if (m.field === 'content') {
-        const original = typeof (el as { content?: unknown }).content === 'string'
-          ? (el as TextElement).content : '';
+        const rawContent = (el as TextElement).content;
+        const original = typeof rawContent === 'string' ? rawContent : '';
         const updated = applyReplace(original, find, replace, caseSensitive, wholeWord, all);
         if (updated !== original) {
           updateElement(m.slideIndex, m.elementIndex, { content: updated } as never);
