@@ -9,6 +9,7 @@ import TemplatePickerModal from './TemplatePickerModal.tsx';
 import InsertMediaModal from './InsertMediaModal.tsx';
 import GitLabModal from '../GitLab/GitLabModal.tsx';
 import PptxImportModal from './PptxImportModal.tsx';
+import DocxImportModal from './DocxImportModal.tsx';
 import ThemeEditorModal from './ThemeEditorModal.tsx';
 import FooterSettingsModal from './FooterSettingsModal.tsx';
 import VideoExportModal from './VideoExportModal.tsx';
@@ -71,6 +72,7 @@ export default function Toolbar() {
 
   const [importOpen,       setImportOpen]       = useState(false);
   const [pptxImportOpen,   setPptxImportOpen]   = useState(false);
+  const [docxImportOpen,   setDocxImportOpen]   = useState(false);
   const [themeOpen,        setThemeOpen]        = useState(false);
   const [footerOpen,       setFooterOpen]       = useState(false);
   const [videoOpen,        setVideoOpen]        = useState(false);
@@ -249,6 +251,7 @@ export default function Toolbar() {
             <div className="absolute top-full right-0 mt-1 w-36 bg-surface-800 border border-white/10 rounded-md shadow-xl overflow-hidden hidden group-open:block z-50">
               <button className="w-full text-left px-3 py-2.5 text-[12px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { setImportOpen(true); document.body.click(); }}>Import MD</button>
               <button className="w-full text-left px-3 py-2.5 text-[12px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { setPptxImportOpen(true); document.body.click(); }}>Import PPTX</button>
+              <button className="w-full text-left px-3 py-2.5 text-[12px] text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => { setDocxImportOpen(true); document.body.click(); }}>Import DOCX</button>
               <div className="h-px bg-white/10 w-full" />
               <button className={`w-full text-left px-3 py-2.5 text-[12px] transition-colors flex items-center gap-1.5 ${gitlabConfig ? 'text-orange-400 hover:bg-orange-500/10' : 'text-gray-300 hover:bg-white/10 hover:text-white'}`} onClick={() => { setGitlabOpen(true); document.body.click(); }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51 1.22 3.78a.84.84 0 0 1-.3.92z"/></svg>
@@ -314,6 +317,7 @@ export default function Toolbar() {
       {/* ── Modals ── */}
       {importOpen       && <MarkdownImportModal onClose={() => setImportOpen(false)} />}
       {pptxImportOpen   && <PptxImportModal     onClose={() => setPptxImportOpen(false)} />}
+      {docxImportOpen   && <DocxImportModal     onClose={() => setDocxImportOpen(false)} />}
       {themeOpen        && <ThemeEditorModal    onClose={() => setThemeOpen(false)} />}
       {footerOpen       && <FooterSettingsModal onClose={() => setFooterOpen(false)} />}
       {videoOpen        && <VideoExportModal    onClose={() => setVideoOpen(false)} />}

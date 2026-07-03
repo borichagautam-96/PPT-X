@@ -62,6 +62,7 @@ function preprocessAnimateBlocks(md: string): string {
 }
 
 export { adocToMarkdown } from './adoc-to-md.ts';
+export { docxToMarkdown } from './docx-to-md.ts';
 
 export function markdownToPresentation(
   markdown: string,

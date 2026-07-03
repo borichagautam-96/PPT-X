@@ -259,7 +259,7 @@ export default function CanvasElementContent({ element, theme, assets, editing, 
             )}
             <tbody>
               {el.rows?.map((row, ri) => (
-                <tr key={ri} style={{ background: ri % 2 ? 'rgba(255,255,255,0.03)' : 'transparent' }}>
+                <tr key={ri} data-row-idx={ri} style={{ background: ri % 2 ? 'rgba(255,255,255,0.03)' : 'transparent' }}>
                   {row.map((cell, ci) => (
                     <td key={ci} style={{ padding: '7px 12px', borderBottom: `1px solid rgba(255,255,255,0.08)` }}>{cell}</td>
                   ))}

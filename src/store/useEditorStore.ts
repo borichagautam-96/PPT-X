@@ -12,6 +12,7 @@ import type {
   Asset,
   Theme,
   FooterConfig,
+  TableElement,
 } from '@/core/schema';
 import { SHOWCASE_PRESENTATION } from '../data/showcase.ts';
 import type { GitLabConfig } from '../services/gitlab.ts';
@@ -113,6 +114,8 @@ interface EditorActions {
   updateSlideContentScale: (slideIndex: number, scale: number | undefined) => void;
   /** Move every element from `splitElementIndex` onward into a new slide immediately after this one. */
   splitSlideAt: (slideIndex: number, splitElementIndex: number) => void;
+  /** Split a table element's rows across two slides — for when a single table alone overflows the slide. */
+  splitTableRowsAt: (slideIndex: number, elementIndex: number, rowSplitIndex: number) => void;
 
   updateElement: (slideIndex: number, elementIndex: number, patch: Partial<PresentationElement>) => void;
   deleteElement: (slideIndex: number, elementIndex: number) => void;
@@ -639,6 +642,57 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 
           const keepEls = source.elements.slice(0, splitElementIndex);
           const moveEls = source.elements.slice(splitElementIndex).map((el) => ({ ...el, id: crypto.randomUUID() }));
+
+          const updatedOriginal: Slide = { ...source, elements: keepEls, contentScale: undefined };
+          const newSlide: Slide = {
+            ...source,
+            id: crypto.randomUUID(),
+            title: source.title ? `${source.title} (cont.)` : source.title,
+            notes: undefined,
+            titlePosition: undefined,
+            contentScale: undefined,
+            elements: moveEls,
+          };
+
+          const slides = [
+            ...state.presentation.slides.slice(0, slideIndex),
+            updatedOriginal,
+            newSlide,
+            ...state.presentation.slides.slice(slideIndex + 1),
+          ].map((s, i) => ({ ...s, order: i }));
+
+          return {
+            isDirty: true,
+            selectedSlideIndex: slideIndex + 1,
+            selectedElementIndex: null,
+            selectedElementIndices: [],
+            presentation: { ...state.presentation, slides },
+          };
+        });
+      },
+
+      splitTableRowsAt: (slideIndex, elementIndex, rowSplitIndex) => {
+        get()._pushHistory();
+        set((state) => {
+          const source = state.presentation.slides[slideIndex];
+          const target = source?.elements[elementIndex];
+          if (!source || !target || target.type !== 'table') return {};
+          const table = target as TableElement;
+          if (rowSplitIndex <= 0 || rowSplitIndex >= table.rows.length) return {};
+
+          const keepRows = table.rows.slice(0, rowSplitIndex);
+          const moveRows = table.rows.slice(rowSplitIndex);
+
+          const truncatedTable: TableElement = { ...table, rows: keepRows };
+          const continuationTable: TableElement = { ...table, id: crypto.randomUUID(), rows: moveRows };
+
+          const keepEls = source.elements
+            .slice(0, elementIndex)
+            .concat(truncatedTable);
+          const moveEls = [
+            continuationTable,
+            ...source.elements.slice(elementIndex + 1).map((el) => ({ ...el, id: crypto.randomUUID() })),
+          ];
 
           const updatedOriginal: Slide = { ...source, elements: keepEls, contentScale: undefined };
           const newSlide: Slide = {

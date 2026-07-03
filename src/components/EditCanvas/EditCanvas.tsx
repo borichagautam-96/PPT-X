@@ -211,7 +211,7 @@ export default function EditCanvas() {
   const {
     presentation, selectedSlideIndex, selectedElementIndex, selectedElementIndices,
     selectElement, setSelectedElements, deleteSelectedElements, updateSlideTitle, updateSlideTitlePosition,
-    updateSlideContentScale, splitSlideAt,
+    updateSlideContentScale, splitSlideAt, splitTableRowsAt,
   } = useEditorStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -222,6 +222,14 @@ export default function EditCanvas() {
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const [titleSelected, setTitleSelected] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
+  const [splitNotice, setSplitNotice] = useState<string | null>(null);
+
+  // Auto-clear the "can't split" notice after a few seconds.
+  useEffect(() => {
+    if (!splitNotice) return;
+    const t = setTimeout(() => setSplitNotice(null), 5000);
+    return () => clearTimeout(t);
+  }, [splitNotice]);
 
   // Selecting a real element (from ElementWidget, marquee, or Ctrl+A — all outside
   // this component) deselects the title, keeping selection exclusive.
@@ -450,6 +458,36 @@ export default function EditCanvas() {
       if (bottomY > boundaryY) { splitIdx = idx; break; }
     }
     if (splitIdx === null) return;
+
+    // A single element (typically a long table) can itself be taller than the
+    // whole slide — moving "everything from index 0 onward" isn't a real split
+    // in that case. Split the table's rows across the two slides instead.
+    if (splitIdx === 0 && slide.elements[splitIdx]?.type === 'table') {
+      const rowNodes = Array.from(
+        cv.querySelectorAll(`[data-el-idx="${splitIdx}"] tbody tr[data-row-idx]`),
+      ) as HTMLElement[];
+      let rowSplitIdx: number | null = null;
+      for (const rowNode of rowNodes) {
+        const rect = rowNode.getBoundingClientRect();
+        const bottomY = (rect.bottom - cr.top) / scale;
+        if (bottomY > boundaryY) {
+          rowSplitIdx = Number(rowNode.dataset.rowIdx);
+          break;
+        }
+      }
+      if (rowSplitIdx !== null && rowSplitIdx > 0) {
+        splitTableRowsAt(selectedSlideIndex, splitIdx, rowSplitIdx);
+      } else {
+        setSplitNotice("This table's rows are too tall to fit even one per slide — try Shrink to fit instead.");
+      }
+      return;
+    }
+
+    if (splitIdx === 0) {
+      setSplitNotice('This slide has a single large element that can’t be split — try Shrink to fit instead.');
+      return;
+    }
+
     splitSlideAt(selectedSlideIndex, splitIdx);
   }
 
@@ -503,6 +541,21 @@ export default function EditCanvas() {
           >
             Split into new slide
           </button>
+        </div>
+      )}
+
+      {/* Feedback when a split can't be performed (e.g. a single oversized element) */}
+      {splitNotice && (
+        <div
+          style={{
+            position: 'absolute', top: isOverflowing ? 84 : 44, left: '50%', transform: 'translateX(-50%)', zIndex: 45,
+            maxWidth: 380, textAlign: 'center',
+            background: 'rgba(30,41,59,0.95)', border: '1px solid rgba(148,163,184,0.3)',
+            borderRadius: 8, padding: '6px 12px', fontSize: 11, color: '#e2e8f0',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
+          }}
+        >
+          {splitNotice}
         </div>
       )}
 
